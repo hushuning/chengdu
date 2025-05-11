@@ -1,10 +1,10 @@
 node_modules
 .env
+hardhat.config.js
 
 # Hardhat files
 /cache
 /artifacts
-.hardhat.config.js
 # TypeChain files
 /typechain
 /typechain-types

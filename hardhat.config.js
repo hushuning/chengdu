@@ -1,7 +1,7 @@
 require("@nomicfoundation/hardhat-toolbox");
 require('dotenv').config();
 
-console.log(process.env.API_KEY); // 输出 your_api_key_here
+// console.log(process.env.API_KEY); // ~输出 your_api_key_here
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
