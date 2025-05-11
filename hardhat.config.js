@@ -1,4 +1,7 @@
 require("@nomicfoundation/hardhat-toolbox");
+require('dotenv').config();
+
+console.log(process.env.API_KEY); // 输出 your_api_key_here
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
@@ -19,7 +22,7 @@ module.exports = {
     bscMain: {
       url: "https://binance.llamarpc.com",
       chainId: 56,
-      accounts: ["ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"]  // 从 .env 文件加载私钥
+      accounts: [process.env.API_KEY,]  // 从 .env 文件加载私钥
     },
     hardhat: {
        // ← disable the 24 KB contract‑size limit
