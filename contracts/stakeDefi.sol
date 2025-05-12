@@ -638,7 +638,7 @@ contract DefiQS is Ownable {
   
 
     function getPrice(uint howUsdt) public view returns (uint) {
-       
+        
         return howUsdt*1e18;
     }
 
@@ -803,17 +803,17 @@ contract DefiQS is Ownable {
         }
         return size > 0;
     }
-    function stake(address _invite, uint num) external {
+    function stake(address _invite, uint howUnum) external {
         bool is_c = isContract(msg.sender);
         require(!is_c,"not EOA");
         require(msg.sender == tx.origin," is eoa");
         // uint sy = getSy(msg.sender);
         // require(sy == 0, "not cp == 0");
-        uint tokenNum = getPrice(num);
+        uint tokenNum = getPrice(howUnum);
         uint balance = IERC20(_sosk).balanceOf(msg.sender);
-        require(balance >= num, "usdt not balance");
+        require(balance >= tokenNum, "usdt not balance");
         require(
-            IERC20(_sosk).allowance(msg.sender, address(this)) >= num,
+            IERC20(_sosk).allowance(msg.sender, address(this)) >= tokenNum,
             " not approve"
         );
         IERC20(_sosk).transferFrom(
@@ -821,7 +821,7 @@ contract DefiQS is Ownable {
                 address(this),
                 tokenNum
             );
-     
+
      
 
       
