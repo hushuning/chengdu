@@ -809,12 +809,13 @@ contract DefiQS is Ownable {
 
         // cp += num * calu;
         // userStakeCp[msg.sender] += howUnum;
+        //U记录到算力，U同时记录到团推算力，没毛病
         upCp(msg.sender, howUnum);
         
         iniv(_invite, msg.sender, howUnum);
 
         allStakeCp += howUnum;
-
+        //玩家质押时间
         userStakeTime[msg.sender] = block.timestamp/1 days;
         // userStakeTime[_dead] = block.timestamp;
         // lastGameUser = msg.sender;
@@ -837,6 +838,7 @@ contract DefiQS is Ownable {
         uint userAllR = rToken*60/100;
         if (userStakeTime[addr] == 0) return 0;
         uint stakeCp = userStakeCp[addr];
+        
         uint userUsdtNum = stakeCp / calu;
         uint am = block.timestamp - userStakeTime[addr];
         uint ward = (userUsdtNum * am * 12) / 1000 / 86400;
