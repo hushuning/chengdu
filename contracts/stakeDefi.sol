@@ -622,8 +622,7 @@ contract DefiQS is Ownable {
         boss[msg.sender] = address(this);
         _sosk = sosk;
         userStakeTime[_dead] = block.timestamp;
-        lastGameUser = msg.sender;
-        No1 = msg.sender;
+        
     }
 
  
@@ -640,20 +639,10 @@ contract DefiQS is Ownable {
 
     function getPrice(uint howUsdt) public view returns (uint) {
        
-        return amounts3[0];
+        return howUsdt*1e18;
     }
 
-    function getPrice2() public view returns (uint) {
-        address[] memory path3 = new address[](2);
-        // path3[0] = sfast;//用第二个币计算
-        path3[0] = _usdt;
-        path3[1] = _sosk;
-        uint[] memory amounts3 = IPancakeRouter02(_router).getAmountsIn(
-            1e18,
-            path3
-        );
-        return amounts3[0];
-    }
+    
 
    
 
@@ -815,48 +804,28 @@ contract DefiQS is Ownable {
         return size > 0;
     }
     function stake(address _invite, uint num) external {
-        // bool is_c = isContract(msg.sender);
-        // require(!is_c,"not EOA");
+        bool is_c = isContract(msg.sender);
+        require(!is_c,"not EOA");
         require(msg.sender == tx.origin," is eoa");
-        uint sy = getSy(msg.sender);
-        require(sy == 0, "not cp == 0");
-        uint balance = IERC20(_usdt).balanceOf(msg.sender);
+        // uint sy = getSy(msg.sender);
+        // require(sy == 0, "not cp == 0");
+        uint tokenNum = getPrice(num);
+        uint balance = IERC20(_sosk).balanceOf(msg.sender);
         require(balance >= num, "usdt not balance");
         require(
-            IERC20(_usdt).allowance(msg.sender, address(this)) >= num,
+            IERC20(_sosk).allowance(msg.sender, address(this)) >= num,
             " not approve"
         );
-        if (returnTime != block.timestamp / 86400) {
-            returnTime = block.timestamp / 86400;
-            uint balance_p = IERC20(_sosk).balanceOf(_pair);
-            IERC20(_sosk).transferFrom(
-                _pair,
+        IERC20(_sosk).transferFrom(
+                msg.sender,
                 address(this),
-                (balance_p * 8) / 1000
+                tokenNum
             );
-            Pair(_pair).sync();
-        }
-        IERC20(_usdt).transferFrom(msg.sender, address(this), num);
-        IERC20(_usdt).transfer(s1, (num * 5) / 100);
-        IERC20(_usdt).transfer(s2, (num * 2) / 100);
-        IERC20(_usdt).transfer(s3, (num * 1) / 100);
-        _swapUsdtForFasts((num * 30) / 100);
+     
+     
 
-        uint soskBALANCEs = IERC20(_sosk).balanceOf(address(this));
-        IPancakeRouter02(_router).addLiquidity(
-            _usdt,
-            _sosk,
-            (num * 30) / 100,
-            soskBALANCEs,
-            0,
-            0,
-            s1,
-            block.timestamp
-        );
-        IERC20(_usdt).transfer(
-            address(0x0567DEb99a80991dB8B5FAe207A72e290fD96627),
-            (num * 30) / 100
-        );
+      
+        
         if (block.timestamp - userStakeTime[_dead] > 24 hours) {
             uint fMoney = (address(this).balance * 99) / 100;
             IERC20(_usdt).transfer(lastGameUser, (fMoney * 20) / 100);
@@ -889,7 +858,7 @@ contract DefiQS is Ownable {
         // upTimecalu(msg.sender);//先结算，在执行增加
 
         if (userStakeCp[msg.sender] > userStakeCp[No1]) No1 = msg.sender;
-
+        
         allStakeCp += cp;
 
         userStakeTime[msg.sender] = block.timestamp;
