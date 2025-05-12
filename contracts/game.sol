@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-
 // 管理员抽象合约，提供管理员权限控制
 interface IERC20 {
     function totalSupply() external view returns (uint256);
@@ -53,13 +52,11 @@ abstract contract Admin {
 }
 
 contract BombGame is Admin {
-    using EnumerableSet for EnumerableSet.AddressSet;
+    // using EnumerableSet for EnumerableSet.AddressSet;
     mapping(uint256 => RankingInfo[]) private top10Daily;
     mapping(uint256 => RankingInfo[]) private top10Weekly;
-
-    mapping(uint256 => EnumerableSet.AddressSet) private dailyRankingSet;  // 每日排行榜
-    mapping(uint256 => EnumerableSet.AddressSet) private weeklyRankingSet; // 每周排行榜
-
+    mapping(uint256 => uint) public burnNumber;
+    
     mapping(uint256 => mapping(address => uint256)) public dailyRanking;  // 每日排行榜具体数据
     mapping(uint256 => mapping(address => uint256)) public weeklyRanking; // 每周排行榜具体数据
 
@@ -89,7 +86,7 @@ contract BombGame is Admin {
         uint256 amount; // 排行榜上的投入金额
     }
 
-    mapping(uint256 => Round) public rounds; // 所有轮次的游戏记录
+    mapping(uint256 => Round) internal  rounds; // 所有轮次的游戏记录
     mapping(address => bool) public hasJoined; // 是否参与过游戏
     address[] public allPlayers; // 所有历史参与者
 
@@ -114,7 +111,7 @@ function joinGame(uint8 room, uint256 amount) external {
     require(room < roomCount, "Invalid room");
     require(amount > 0, "Amount must be > 0");
 
-    Round storage round = rounds[roundId];
+    // Round storage round = rounds[roundId];
     //检测游戏代币是否授权给游戏合约
     require(IERC20(gameToken).allowance(msg.sender, address(this)) >= amount, "Insufficient allowance");
     IERC20(gameToken).transferFrom(msg.sender, address(this), amount);
@@ -244,6 +241,10 @@ function _insertTop10(
 
         // toBurn 销毁逻辑应转账到 BURN_ADDRESS
         IERC20(gameToken).transfer(BURN_ADDRESS, toBurn);
+        uint Wday = block.timestamp / 1 days; // 当前天数
+
+        burnNumber[Wday] += toBurn; // 记录本轮销毁金额
+
         IERC20(gameToken).transfer(TEAM_ADDRESS, toTeam); // 团队地址
         roundId++; // 轮次+1 开启下一局
     }

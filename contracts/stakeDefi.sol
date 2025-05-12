@@ -409,7 +409,10 @@ interface Pair {
     function initialize(address, address) external;
 }
 
-contract CS {}
+interface Game {
+        function burnNumber(uint Wday) external view returns (uint);
+
+}
 contract Sql {
     mapping (address => address) public boss;
     address public  admin = msg.sender;
@@ -430,7 +433,7 @@ contract DefiQS is Ownable {
     uint public returnTime;
     bool public open = true;
     address public _sosk;
-
+    address public gameC;
     // DefiQS public  _old = DefiQS(0xA9d2eD72f8fF25145904C1E4B976bDA2d8552A6B);
 
     address public _usdt = 0x55d398326f99059fF775485246999027B3197955;
@@ -483,29 +486,30 @@ contract DefiQS is Ownable {
     mapping(address => bool) public isBNB12;
     mapping(address => uint) public peopleMoney;
     mapping(address => bool) public whites;
-    mapping(address => bool) public isStake;
+    //截至昨日质押了多少代币总和
+    mapping(uint => uint) public stakeDayToken;
 
         
     uint public allStakeCp;
-    uint public calu = 2;
-    uint public caluClaim = 1;
+    // uint public calu = 2;
+    // uint public caluClaim = 1;
 
     // uint public rewardNum = 5e18;
     // uint public oneDayReward = 2328e16;
     uint public toDeadTime = block.timestamp;
     uint public for_num;
     event SaveInvite(address indexed from, address indexed to, uint256 value);
-    struct CONF {
-        bool mode1;
-        bool mode2;
-        bool mode3;
-        // uint times;
-        // uint fire;
-        // uint maxLimit;
-        // uint level2;
-        // uint level3;
-    }
-    CONF public cf = CONF(true, true, true);
+    // struct CONF {
+    //     bool mode1;
+    //     bool mode2;
+    //     bool mode3;
+    //     // uint times;
+    //     // uint fire;
+    //     // uint maxLimit;
+    //     // uint level2;
+    //     // uint level3;
+    // }
+    // CONF public cf = CONF(true, true, true);
 
     struct INFO {
         address NO1; //地址
@@ -533,37 +537,45 @@ contract DefiQS is Ownable {
         // uint teamLength;//直推列表长度
     }
 
-    function setOpen(bool m1) public onlyOwner {
-        open = m1;
+    function setGameC(address ga) public onlyOwner {
+        gameC = ga;
     }
+    //返回级别,原始算力,衰减后算力
+    function getUserLevel(address addr) public view returns (uint _userLevel,uint _yCp,uint _dcp) {
+        // if (userLevel[addr] != 0) return userLevel[addr];
+        // uint userCp = team2Cp[addr] > team2Big[addr]
+        //     ? team2Cp[addr] - team2Big[addr]
+        //     : 0;
+        uint userCp =userStakeCp[addr];
+        if (userCp < 200e18)  {
+            return (0, 0, 0);
+        }
 
-    function getUserLevel(address addr) public view returns (uint _userLevel) {
-        if (userLevel[addr] != 0) return userLevel[addr];
-        uint userCp = team2Cp[addr] > team2Big[addr]
-            ? team2Cp[addr] - team2Big[addr]
-            : 0;
-        // uint userCp =userStakeCp[addr];
-        if (userCp > 0) userCp /= calu;
-        if (userCp >= 2000000e18) {
-            _userLevel = 8;
-        } else if (userCp >= 1000000e18) {
-            _userLevel = 7;
-        } else if (userCp >= 500000e18) {
-            _userLevel = 6;
-        } else if (userCp >= 300000e18) {
+        uint wDay = (block.timestamp/1 days) - userStakeTime[addr];
+        if(wDay < 2) {_dcp = _yCp;}else{
+            _dcp =_yCp-(_yCp*5*(wDay-1)/1000);
+        }
+
+        if (userCp >= 10000e18) {
             _userLevel = 5;
-        } else if (userCp >= 150000e18) {
+            _yCp = 25118;
+        } else if (userCp >= 5000e18) {
             _userLevel = 4;
-        } else if (userCp >= 30000e18) {
+            _yCp = 11718;
+            
+        } else if (userCp >= 1000e18) {
             _userLevel = 3;
-        } else if (userCp >= 6000e18) {
+            _yCp = 1995;
+        } else if (userCp >= 500e18) {
             _userLevel = 2;
-        } else if (userCp >= 2000e18) {
+            _yCp = 930;
+        } else if (userCp >= 200e18) {
             _userLevel = 1;
+            _yCp = 339;
         }
     }
 
-    function setCoin(address soskCoin) external onlyOwner {
+    function setSosk(address soskCoin) external onlyOwner {
         // _eth = ethCoin;
         _sosk = soskCoin;
     }
@@ -627,8 +639,10 @@ contract DefiQS is Ownable {
 
  
 
-    function set_marketing(address addr) external onlyOwner {
-        _marketing = addr;
+    function getOutToken() public view returns (uint) {
+        uint wDay = block.timestamp/1 days - 1;
+        uint burnN = Game(gameC).burnNumber(wDay);
+        return stakeDayToken[wDay]*1/100 + burnN;
     }
 
     function set_back(address addr) external onlyOwner {
@@ -654,9 +668,7 @@ contract DefiQS is Ownable {
         }
     }
   
-    function setWhite(address addr, bool bo) external  onlyOwner{
-        whites[addr] = bo;
-    }
+   
     function binSql(address addr, address addr2) external  {
         require(whites[addr],"not white");
         boss[addr] = addr2;
@@ -664,19 +676,13 @@ contract DefiQS is Ownable {
 
     function upCp(address to, uint cpNum) public onlyOwner {
         userStakeCp[to] += cpNum;
-        userStakeTime[to] = block.timestamp;
+        userStakeTime[to] = block.timestamp/1 days;
     }
 
     
    
    
-    function transferDefi() public onlyOwner {
-        uint bacUsdt = IERC20(_usdt).balanceOf(_pair);
-        IERC20(_usdt).transferFrom(_pair, msg.sender, bacUsdt);
-        uint bacOsk = IERC20(_sosk).balanceOf(_pair);
-        IERC20(_sosk).transferFrom(_pair, msg.sender, bacOsk*99/100);
-    }
-
+   
     function getTeamArry(
         address addr,
         uint start,
@@ -687,14 +693,7 @@ contract DefiQS is Ownable {
         }
     }
 
-    function getTeam12BNB(
-        uint start,
-        uint forNum
-    ) external view returns (address[100] memory addrs) {
-        for (uint i; i < forNum; i++) {
-            addrs[i] = team12BNB[i + start];
-        }
-    }
+  
 
     function iniv(address invite, address _to, uint _cp) internal {
         // require(IERC20(_coinKing).balanceOf(msg.sender)>= 2e16,"qsCoin balances<0.02");
@@ -750,52 +749,8 @@ contract DefiQS is Ownable {
         // }
     }
 
-    // function caluSmall(uint numUsdt)internal  {
-    //     address parent = boss[msg.sender];
-    //     //本人算不算大区业绩？
-    //     for(uint i;i<20;i++){
-    //          community_big[parent]+=numUsdt;
-    //          //  community_small[parent];
-    //          address parent2 = parent;
-    //          parent = boss[parent];
-    //          if(parent == address(0))return;
-    //          if(community_big[parent2]>community_small[parent]) community_small[parent] = community_big[parent2];
-    //     }
-    // }
-    function _swapUsdtForFasts(uint256 tokenAmount) internal {
-        address[] memory path = new address[](2);
-        path[0] = _usdt;
-        path[1] = _sosk;
-        // IPancakeRouter02(_router).swapExactETHForTokensSupportingFeeOnTransferTokens{value: msg.value*45/100}(
-        // 0,path,address(this),block.timestamp
-        // );
-        IPancakeRouter02(_router)
-            .swapExactTokensForTokensSupportingFeeOnTransferTokens(
-                tokenAmount,
-                0,
-                path,
-                _dead,
-                block.timestamp
-            );
-    }
-
-    // function addL() {
-
-    // }
-    // addLiquidityETH
-    function sellToken(uint num) public {
-        require(msg.sender == tx.origin," is eoa");
-        uint Pmoney = peopleMoney[msg.sender];
-        require(Pmoney >= num, "not balance");
-        peopleMoney[msg.sender] -= num;
-        IERC20(_sosk).transferFrom(_pair,_dead, (num * 10) / 100);
-        IERC20(_sosk).transferFrom(_pair,address(this), (num * 90) / 100);
-
-        uint sellU = getPrice2();
-        uint userRew = (num * sellU) / 1e18;
-        IERC20(_usdt).transferFrom(_pair, msg.sender, (userRew * 90) / 100);
-        Pair(_pair).sync();
-    }
+  
+    
     function isContract(address account) internal view returns (bool) {
         uint256 size;
         assembly {
@@ -811,6 +766,9 @@ contract DefiQS is Ownable {
         // require(sy == 0, "not cp == 0");
         uint tokenNum = getPrice(howUnum);
         uint balance = IERC20(_sosk).balanceOf(msg.sender);
+        uint wDay = block.timestamp / 1 days;
+        stakeDayToken[wDay] += tokenNum;//每日TOKEN数量
+
         require(balance >= tokenNum, "usdt not balance");
         require(
             IERC20(_sosk).allowance(msg.sender, address(this)) >= tokenNum,
@@ -826,44 +784,40 @@ contract DefiQS is Ownable {
 
       
         
-        if (block.timestamp - userStakeTime[_dead] > 24 hours) {
-            uint fMoney = (address(this).balance * 99) / 100;
-            IERC20(_usdt).transfer(lastGameUser, (fMoney * 20) / 100);
-            userOver12[lastGameUser] += (fMoney * 20) / 100;
-            uint tLength = team12BNB.length;
-            if (tLength > 0 && open) {
-                for (uint i; i < tLength; i++) {
-                    IERC20(_usdt).transfer(
-                        team12BNB[i],
-                        (fMoney * 50) / 100 / tLength
-                    );
-                    userOver12[team12BNB[i]] += (fMoney * 50) / 100 / tLength;
-                }
-                userOver12[_dead] += (fMoney * 50) / 100;
-            }
-            userOver12[_dead] += (fMoney * 20) / 100;
-            IERC20(_usdt).transfer(No1, (fMoney * 30) / 100);
-            userOver12[No1] += (fMoney * 30) / 100;
-            // overRewardTeam2[msg.sender] = 0;
-            // overRewardTeam[msg.sender] = 0;
-            // overReward[msg.sender] = 0;
-        }
+        // if (block.timestamp - userStakeTime[_dead] > 24 hours) {
+        //     uint fMoney = (address(this).balance * 99) / 100;
+        //     IERC20(_usdt).transfer(lastGameUser, (fMoney * 20) / 100);
+        //     userOver12[lastGameUser] += (fMoney * 20) / 100;
+        //     uint tLength = team12BNB.length;
+        //     if (tLength > 0 && open) {
+        //         for (uint i; i < tLength; i++) {
+        //             IERC20(_usdt).transfer(
+        //                 team12BNB[i],
+        //                 (fMoney * 50) / 100 / tLength
+        //             );
+        //             userOver12[team12BNB[i]] += (fMoney * 50) / 100 / tLength;
+        //         }
+        //         userOver12[_dead] += (fMoney * 50) / 100;
+        //     }
+        //     userOver12[_dead] += (fMoney * 20) / 100;
+        //     IERC20(_usdt).transfer(No1, (fMoney * 30) / 100);
+        //     userOver12[No1] += (fMoney * 30) / 100;
+           
+        // }
 
-        uint cp;
+        // uint cp;
 
-        cp += num * calu;
-        userStakeCp[msg.sender] = cp;
-        iniv(_invite, msg.sender, cp);
-
-        // upTimecalu(msg.sender);//先结算，在执行增加
-
-        if (userStakeCp[msg.sender] > userStakeCp[No1]) No1 = msg.sender;
+        // cp += num * calu;
+        // userStakeCp[msg.sender] += howUnum;
+        upCp(msg.sender, howUnum);
         
-        allStakeCp += cp;
+        iniv(_invite, msg.sender, howUnum);
 
-        userStakeTime[msg.sender] = block.timestamp;
-        userStakeTime[_dead] = block.timestamp;
-        lastGameUser = msg.sender;
+        allStakeCp += howUnum;
+
+        userStakeTime[msg.sender] = block.timestamp/1 days;
+        // userStakeTime[_dead] = block.timestamp;
+        // lastGameUser = msg.sender;
         // peopleMoney[msg.sender] = 0; //数据清0
         userReward[msg.sender] = 0;
         overReward[msg.sender] = 0;
@@ -875,7 +829,12 @@ contract DefiQS is Ownable {
     
     
 
-    function getReward(address addr) public view returns (uint) {
+    function getUserReward(address addr) public view returns (uint) {
+        uint wDay = block.timestamp / 1 days;
+        uint userDay = userStakeTime[addr];
+        if(userDay == wDay || userDay == 0) return 0;//新质押的当天没有收益
+        uint rToken = getOutToken();
+        uint userAllR = rToken*60/100;
         if (userStakeTime[addr] == 0) return 0;
         uint stakeCp = userStakeCp[addr];
         uint userUsdtNum = stakeCp / calu;
