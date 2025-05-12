@@ -448,6 +448,7 @@ contract DefiQS is Ownable {
     address public lastGameUser;
     address[] public team12BNB; //line1Addr
 
+    mapping(address => uint) public userStakeUsdt;
 
     mapping(address => uint) public userStakeCp;
 
@@ -574,6 +575,43 @@ contract DefiQS is Ownable {
             _yCp = 339;
         }
     }
+    function getSyCp(address addr)public view returns (uint _yCp) {
+        uint userCp =userStakeCp[addr];
+        if (userCp == 0)  return 0;
+        uint wDay = (block.timestamp/1 days) - userStakeTime[addr];
+        if(wDay < 2) { _yCp = userCp;}else{
+            _yCp =userCp-(userCp*5*(wDay-1)/1000);
+        }   
+        
+    }   
+    function getNewCp(uint howUsdt) public view returns (uint _yCp) {
+        // if (userLevel[addr] != 0) return userLevel[addr];
+        // uint userCp = team2Cp[addr] > team2Big[addr]
+        //     ? team2Cp[addr] - team2Big[addr]
+        //     : 0;
+        if (howUsdt < 200e18)  {
+            return 0;
+        }
+       
+
+        if (howUsdt >= 10000e18) {
+            // _userLevel = 5;
+            _yCp = 25118;
+        } else if (howUsdt >= 5000e18) {
+            // _userLevel = 4;
+            _yCp = 11718;
+            
+        } else if (howUsdt >= 1000e18) {
+            // _userLevel = 3;
+            _yCp = 1995;
+        } else if (howUsdt >= 500e18) {
+            // _userLevel = 2;
+            _yCp = 930;
+        } else if (howUsdt >= 200e18) {
+            // _userLevel = 1;
+            _yCp = 339;
+        }
+    }
 
     function setSosk(address soskCoin) external onlyOwner {
         // _eth = ethCoin;
@@ -675,6 +713,8 @@ contract DefiQS is Ownable {
     }
 
     function upCp(address to, uint cpNum) public onlyOwner {
+        uint oldCp = getSyCp(to);
+        cpNum = cpNum + oldCp;
         userStakeCp[to] += cpNum;
         userStakeTime[to] = block.timestamp/1 days;
     }
@@ -709,26 +749,20 @@ contract DefiQS is Ownable {
 
             flag = true;
 
-            // upTimeTeam(invite);
-
-            //     teamCp[invite] +=_cp;
-
-            // if(teamCp[invite]>36e18) team12BNB.push(invite);
             teamTime[invite] = block.timestamp;
         }
         address parent = boss[_to];
         if (team2Big[parent] < team2Cp[_to] + userStakeCp[_to])
             team2Big[parent] = team2Cp[_to] + userStakeCp[_to];
-        // if(team2Big[parent]<team2Cp[_to]+userStakeCp[_to])team2Big[parent] = team2Cp[_to]+userStakeCp[_to];
 
         for (uint i = 1; i < 15; i++) {
             if (i == 1) {
                 teamCp[parent] += _cp;
 
-                if (teamCp[parent] > 3000e18 && !isBNB12[parent]) {
-                    team12BNB.push(parent);
-                    isBNB12[parent] = true;
-                }
+                // if (teamCp[parent] > 3000e18 && !isBNB12[parent]) {
+                //     team12BNB.push(parent);
+                //     isBNB12[parent] = true;
+                // }
             }
             //  upTimeTeam2(parent);
             //  team2Time[parent] = block.timestamp;
@@ -779,42 +813,14 @@ contract DefiQS is Ownable {
                 address(this),
                 tokenNum
             );
+        //获取本次应该加算力    
+        uint newCp = getNewCp(howUnum);
+        //加入衰减后的老算力，更新最新算力
+        upCp(msg.sender, newCp);
+        //邀请
+        iniv(_invite, msg.sender, newCp);
 
-     
-
-      
-        
-        // if (block.timestamp - userStakeTime[_dead] > 24 hours) {
-        //     uint fMoney = (address(this).balance * 99) / 100;
-        //     IERC20(_usdt).transfer(lastGameUser, (fMoney * 20) / 100);
-        //     userOver12[lastGameUser] += (fMoney * 20) / 100;
-        //     uint tLength = team12BNB.length;
-        //     if (tLength > 0 && open) {
-        //         for (uint i; i < tLength; i++) {
-        //             IERC20(_usdt).transfer(
-        //                 team12BNB[i],
-        //                 (fMoney * 50) / 100 / tLength
-        //             );
-        //             userOver12[team12BNB[i]] += (fMoney * 50) / 100 / tLength;
-        //         }
-        //         userOver12[_dead] += (fMoney * 50) / 100;
-        //     }
-        //     userOver12[_dead] += (fMoney * 20) / 100;
-        //     IERC20(_usdt).transfer(No1, (fMoney * 30) / 100);
-        //     userOver12[No1] += (fMoney * 30) / 100;
-           
-        // }
-
-        // uint cp;
-
-        // cp += num * calu;
-        // userStakeCp[msg.sender] += howUnum;
-        //U记录到算力，U同时记录到团推算力，没毛病
-        upCp(msg.sender, howUnum);
-        
-        iniv(_invite, msg.sender, howUnum);
-
-        allStakeCp += howUnum;
+        allStakeCp += newCp;
         //玩家质押时间
         userStakeTime[msg.sender] = block.timestamp/1 days;
         // userStakeTime[_dead] = block.timestamp;
@@ -837,22 +843,18 @@ contract DefiQS is Ownable {
         uint rToken = getOutToken();
         uint userAllR = rToken*60/100;
         if (userStakeTime[addr] == 0) return 0;
-        uint stakeCp = userStakeCp[addr];
-        
-        uint userUsdtNum = stakeCp / calu;
-        uint am = block.timestamp - userStakeTime[addr];
-        uint ward = (userUsdtNum * am * 12) / 1000 / 86400;
-        return ward + userReward[addr];
+        uint syCp = getSyCp(addr);
+        return userAllR*syCp/allStakeCp;
     }
 
-    // function getRewardTeam1(address addr)public view returns(uint) {
-    //           if( teamCp[addr] == 0 ||teamTime[addr] == 0 ) return 0;
-    //           uint stakeCp = teamCp[addr];
-    //           uint userUsdtNum = stakeCp/3;
-    //           uint am =  block.timestamp - teamTime[addr];
-    //           uint ward =   userUsdtNum *am* 15/10000/86400;
-    //           return ward + teamReward[addr];
-    // }
+    function getRewardTeam1(address addr)public view returns(uint) {
+        if( teamCp[addr] == 0 ||teamTime[addr] == 0 ) return 0;
+        uint stakeCp = teamCp[addr];
+        uint userUsdtNum = stakeCp/3;
+        uint am =  block.timestamp - teamTime[addr];
+        uint ward =   userUsdtNum *am* 15/10000/86400;
+        return ward + teamReward[addr];
+    }
     // function getRewardTeam2(address addr)public view returns(uint) {
     //           if(team2Cp[addr] == 0 ||team2Time[addr]==0) return 0;
     //           uint stakeCp =  team2Cp[addr];
@@ -865,18 +867,18 @@ contract DefiQS is Ownable {
     function setOver(address addr)public  onlyOwner{
         overReward[addr]+=1000e18;
     }
-    function getSy(address addr) public view returns (uint sy) {
-        uint overR = overReward[addr] +
-            overRewardTeam[addr] +
-            overRewardTeam2[addr] +
-            userOver12[addr];
-        if (userStakeCp[addr] >= overR) {
-            sy = userStakeCp[addr] - overR;
-        } else {
-            sy = 0;
-        }
-        // sy = userStakeCp[addr] -overReward[addr]- over
-    }
+    // function getSy(address addr) public view returns (uint sy) {
+    //     uint overR = overReward[addr] +
+    //         overRewardTeam[addr] +
+    //         overRewardTeam2[addr] +
+    //         userOver12[addr];
+    //     if (userStakeCp[addr] >= overR) {
+    //         sy = userStakeCp[addr] - overR;
+    //     } else {
+    //         sy = 0;
+    //     }
+    //     // sy = userStakeCp[addr] -overReward[addr]- over
+    // }
 
     function claim() external {
         require(msg.sender == tx.origin," is eoa");
