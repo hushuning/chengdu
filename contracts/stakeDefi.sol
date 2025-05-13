@@ -430,7 +430,7 @@ contract Sql {
 }
 contract DefiQS is Ownable {
 
-    uint public returnTime;
+    uint public teN  = 1;
     bool public open = true;
     address public _sosk;
     address public gameC;
@@ -446,7 +446,7 @@ contract DefiQS is Ownable {
     address public s3;
     address public No1;
     address public lastGameUser;
-    address[] public team12BNB; //line1Addr
+    // address[] public team12BNB; //line1Addr
 
     mapping(address => uint) public userStakeUsdt;
 
@@ -468,7 +468,7 @@ contract DefiQS is Ownable {
 
     // mapping(address =>address) public
     mapping(address => uint) public team1Money; // user -> teams1
-    mapping(address => uint) public teamCp; // user -> teams2
+    // mapping(address => uint) public teamCp; // user -> teams2
     mapping(address => uint) public team2Cp; // user -> teams2
 
     mapping(address => uint) public team2Num;
@@ -486,7 +486,9 @@ contract DefiQS is Ownable {
     mapping(address => uint) public decNum;
     mapping(address => bool) public isBNB12;
     mapping(address => uint) public peopleMoney;
-    mapping(address => bool) public whites;
+    mapping(uint =>mapping(address => bool) ) public isClaimUser;
+    mapping(uint =>mapping(address => bool) ) public isClaimTeam;
+
     //截至昨日质押了多少代币总和
     mapping(uint => uint) public stakeDayToken;
 
@@ -513,28 +515,28 @@ contract DefiQS is Ownable {
     // CONF public cf = CONF(true, true, true);
 
     struct INFO {
-        address NO1; //地址
-        address usdtCoin; //wbnb地址
+        // address NO1; //地址
+        // address usdtCoin; //wbnb地址
         address bbaCoin; //bba币地址
         address inivet; //我的上级是谁
-        address lostUser; //最后一名入场玩家
-        uint deadNum; //最后一名玩家入场时间
-        uint userOver12; //玩家领取了多少12小时截至的分配收益
-        uint allOver12; //全网共分配了多少12小时未领取的收益
+        // address lostUser; //最后一名入场玩家
+        // uint deadNum; //最后一名玩家入场时间
+        // uint userOver12; //玩家领取了多少12小时截至的分配收益
+        // uint allOver12; //全网共分配了多少12小时未领取的收益
         uint allStakeCp; //全网算
         uint userCp; //  个人算力
-        uint tmCp; //直推算力
+        // uint tmCp; //直推算力
         uint teamCp2; //15代团队算力
         uint userAward; // 个人可领取收益s
         uint teamLength; //直推人数
         uint team2Length; //15代人数
         uint overAward; //已经领取了多少收益
-        uint overTeam; //123代领取了多少的收益
-        uint overTeam2; //15代已经领取了多少收益
+        uint overTeam; //团队领取了多少的收益
+        // uint overTeam2; //15代已经领取了多少收益
         uint levle; //级别
-        uint bnbNum; //合约USDT数量
-        uint t12Length; //12B长度
-        uint tmcp; //第一名直推算力，需要前端除以3
+        uint tokenNum; //合约代币数量
+        // uint t12Length; //12B长度
+        // uint tmcp; //第一名直推算力，需要前端除以3
         // uint teamLength;//直推列表长度
     }
 
@@ -542,37 +544,30 @@ contract DefiQS is Ownable {
         gameC = ga;
     }
     //返回级别,原始算力,衰减后算力
-    function getUserLevel(address addr) public view returns (uint _userLevel,uint _yCp,uint _dcp) {
-        // if (userLevel[addr] != 0) return userLevel[addr];
-        // uint userCp = team2Cp[addr] > team2Big[addr]
-        //     ? team2Cp[addr] - team2Big[addr]
-        //     : 0;
+    function getUserLevel(address addr) public view returns (uint _userLevel) {
+        
         uint userCp =userStakeCp[addr];
-        if (userCp < 200e18)  {
-            return (0, 0, 0);
-        }
+    
+        // uint wDay = (block.timestamp/1 days) - userStakeTime[addr];
+        // if(wDay < 2) {_dcp = _yCp;}else{
+        //     _dcp =_yCp-(_yCp*5*(wDay-1)/1000);
+        // }
 
-        uint wDay = (block.timestamp/1 days) - userStakeTime[addr];
-        if(wDay < 2) {_dcp = _yCp;}else{
-            _dcp =_yCp-(_yCp*5*(wDay-1)/1000);
-        }
-
-        if (userCp >= 10000e18) {
+        if (userCp >= 25118) {
             _userLevel = 5;
-            _yCp = 25118;
-        } else if (userCp >= 5000e18) {
+        } else if (userCp >= 11718) {
             _userLevel = 4;
-            _yCp = 11718;
+            // _yCp = 11718;
             
-        } else if (userCp >= 1000e18) {
+        } else if (userCp >= 1995) {
             _userLevel = 3;
-            _yCp = 1995;
-        } else if (userCp >= 500e18) {
+            // _yCp = 1995;
+        } else if (userCp >= 930) {
             _userLevel = 2;
-            _yCp = 930;
-        } else if (userCp >= 200e18) {
+            // _yCp = 930;
+        } else if (userCp >= 339) {
             _userLevel = 1;
-            _yCp = 339;
+            // _yCp = 339;
         }
     }
     function getSyCp(address addr)public view returns (uint _yCp) {
@@ -617,11 +612,15 @@ contract DefiQS is Ownable {
         // _eth = ethCoin;
         _sosk = soskCoin;
     }
-
+    function setTen(uint _teN) external onlyOwner {
+        teN = _teN;
+    }
    
     function getInfo(address addr) external view returns (INFO memory arr) {
         uint le = getUserLevel(addr);
-        uint autoR = getReward(addr);
+        uint autoR = getUserReward(addr);
+        uint autoR2 = getRewardTeam(addr);
+
         // address usdtCoin;//wbnb地址
         // address bbaCoin;     //bba币地址
         // address inivet;     //我的上级是谁
@@ -634,7 +633,7 @@ contract DefiQS is Ownable {
         // uint tmCp;//直推算力
         // uint teamCp2;//15代团队算力
         // uint userAward;   // 个人可领取收益
-        // uint teamLength;//直推人数
+        // uint teamLength;//直推人数f
         // uint team2Length;//15代人数
         // uint overAward;//已经领取了多少收益
         // uint overTeam;//123代领取了多少的收益
@@ -642,33 +641,33 @@ contract DefiQS is Ownable {
         // uint levle;//级别
 
         arr = INFO(
-            No1,
-            _usdt, //usdt地址
+            // No1,
+            // _usdt, //usdt地址
             _sosk, //sapcae币地址
             boss[addr], //我的上级是谁
-            lastGameUser, // 最后一名玩家地址
-            userStakeTime[_dead], //最后一名玩家入场时间
-            userOver12[addr], //玩家领取了多少12小时截至的分配收益
-            userOver12[_dead], //全网共分配了多少12小时未领取的收益
+            // lastGameUser, // 最后一名玩家地址
+            // userStakeTime[_dead], //最后一名玩家入场时间
+            // userOver12[addr], //玩家领取了多少12小时截至的分配收益
+            // userOver12[_dead], //全网共分配了多少12小时未领取的收益
             allStakeCp*50/100, //全网算
             userStakeCp[addr]*50/100, //  个人算力
-            teamCp[addr], //直推算力
+            // teamCp[addr], //直推算力
             team2Cp[addr], //15代团队算力
             autoR, // 个人可领取收益
-            teamArry[addr].length, //直推人数
+            autoR2, //团队可领取收益
             team2Num[addr], //15
             overRewardCoin[addr], //已经领取了多少收益
             overRewardTeamCoin[addr], //废数据
-            overRewardTeam2Coin[addr], //15代已经领取了多少收益
+            // overRewardTeam2Coin[addr], //15代已经领取了多少收益
             le, //级别,
-            IERC20(_usdt).balanceOf(address(this)),
-            team12BNB.length,
-            teamCp[No1]
+            IERC20(_sosk).balanceOf(address(this))
+            // team12BNB.length,
+            // teamCp[No1]
         );
     }
 
     constructor(address sosk) public {
-        whites[msg.sender] = true;
+        // whites[msg.sender] = true;
         boss[msg.sender] = address(this);
         _sosk = sosk;
         userStakeTime[_dead] = block.timestamp;
@@ -707,8 +706,8 @@ contract DefiQS is Ownable {
     }
   
    
-    function binSql(address addr, address addr2) external  {
-        require(whites[addr],"not white");
+    function binSql(address addr, address addr2) external onlyOwner  {
+        // require(whites[addr],"not white");
         boss[addr] = addr2;
     }
 
@@ -755,27 +754,20 @@ contract DefiQS is Ownable {
         if (team2Big[parent] < team2Cp[_to] + userStakeCp[_to])
             team2Big[parent] = team2Cp[_to] + userStakeCp[_to];
 
-        for (uint i = 1; i < 15; i++) {
-            if (i == 1) {
-                teamCp[parent] += _cp;
-
-                // if (teamCp[parent] > 3000e18 && !isBNB12[parent]) {
-                //     team12BNB.push(parent);
-                //     isBNB12[parent] = true;
-                // }
-            }
-            //  upTimeTeam2(parent);
-            //  team2Time[parent] = block.timestamp;
+        for (uint i = 1; i < 12; i++) {
+            
+           
             team2Cp[parent] += _cp;
 
             if (flag) team2Num[parent] += 1;
             uint pInt = team2Cp[parent] + userStakeCp[parent];
 
             parent = boss[parent];
+            if(parent == address(0)) break;
             if (team2Big[parent] < pInt) team2Big[parent] = pInt;
         }
 
-        // if(parent == address(0)) return;
+        
         // upTimeTeam2(parent);
         // teamCp[parent] += _cp;
         // team2Num[parent] +=1;
@@ -837,23 +829,34 @@ contract DefiQS is Ownable {
     
 
     function getUserReward(address addr) public view returns (uint) {
+
         uint wDay = block.timestamp / 1 days;
+        if(isClaimUser[wDay][addr]) return 0;
+
         uint userDay = userStakeTime[addr];
         if(userDay == wDay || userDay == 0) return 0;//新质押的当天没有收益
         uint rToken = getOutToken();
         uint userAllR = rToken*60/100;
         if (userStakeTime[addr] == 0) return 0;
         uint syCp = getSyCp(addr);
+        //领取时间逻辑
         return userAllR*syCp/allStakeCp;
     }
 
-    function getRewardTeam1(address addr)public view returns(uint) {
-        if( teamCp[addr] == 0 ||teamTime[addr] == 0 ) return 0;
-        uint stakeCp = teamCp[addr];
-        uint userUsdtNum = stakeCp/3;
-        uint am =  block.timestamp - teamTime[addr];
-        uint ward =   userUsdtNum *am* 15/10000/86400;
-        return ward + teamReward[addr];
+    function getRewardTeam(address addr)public view returns(uint) {
+        //新质押的当天没有收益
+        uint wDay = block.timestamp / 1 days;
+        if(isClaimTeam[wDay][addr]) return 0;
+        uint rToken = getOutToken();
+        uint teamAllR = rToken*40/100;
+        if (team2Cp[addr] == 0) return 0;
+        uint allCp = team2Cp[addr];
+        uint bigCp = team2Big[addr];
+        uint smallCp = allCp - bigCp;
+        //领取时间逻辑
+        
+        return teamAllR*smallCp/(allStakeCp*teN);
+         
     }
     // function getRewardTeam2(address addr)public view returns(uint) {
     //           if(team2Cp[addr] == 0 ||team2Time[addr]==0) return 0;
@@ -864,126 +867,116 @@ contract DefiQS is Ownable {
     //           uint ward =   userUsdtNum *am* 6/1000/86400*lv/10;
     //           return ward + team2Reward[addr];
     // }
-    function setOver(address addr)public  onlyOwner{
-        overReward[addr]+=1000e18;
-    }
-    // function getSy(address addr) public view returns (uint sy) {
-    //     uint overR = overReward[addr] +
-    //         overRewardTeam[addr] +
-    //         overRewardTeam2[addr] +
-    //         userOver12[addr];
-    //     if (userStakeCp[addr] >= overR) {
-    //         sy = userStakeCp[addr] - overR;
-    //     } else {
-    //         sy = 0;
-    //     }
-    //     // sy = userStakeCp[addr] -overReward[addr]- over
-    // }
 
-    function claim() external {
+
+    function claimUser() external {
         require(msg.sender == tx.origin," is eoa");
-        uint am = block.timestamp - userStakeTime[msg.sender];
-        //必须有池子
-        uint soskPrice = getPrice(_sosk);
-        uint reward_usdt = getReward(msg.sender);
-        require(reward_usdt > 0, "reward>0");
-        userReward[msg.sender] = 0;
-        reward_usdt *= caluClaim;
-        uint sy = getSy(msg.sender);
-        require(sy > 0, "not sy");
-        if (reward_usdt > sy) {
-            reward_usdt = sy;
-            userStakeCp[msg.sender] = 0;
-        }
+        uint wDay = block.timestamp / 1 days;
+        isClaimUser[wDay][msg.sender] = true;
+        uint reward_token = getRewardTeam(msg.sender);
+        // uint am = block.timestamp - userStakeTime[msg.send
+        require(reward_token > 0, "reward>0");
+        IERC20(_sosk).transfer(msg.sender, reward_token);
+        overRewardTeam[msg.sender] += reward_token;
+        // userReward[msg.sender] = 0;
+        // reward_usdt *= caluClaim;
+        // uint sy = getSy(msg.sender);
+        // require(sy > 0, "not sy");
+        // if (reward_usdt > sy) {
+        //     reward_usdt = sy;
+        //     userStakeCp[msg.sender] = 0;
+        // }
 
-        userStakeTime[msg.sender] = block.timestamp;
-        uint userRew = (reward_usdt * soskPrice) / 1e18;
-        // IERC20(_sosk).transfer(msg.sender,userRew);
-        peopleMoney[msg.sender] += userRew;
-        overRewardCoin[msg.sender] += userRew;
-        overReward[msg.sender] += reward_usdt;
-        address parent = boss[msg.sender];
-        teamTime[parent] = block.timestamp;
-        bool flag;
-        uint lvMax;
-        uint rewardDate;
-        uint lv = getUserLevel(msg.sender);
-        for (uint i = 1; i < 15; i++) {
-            if (parent == address(0)) return;
-            uint parentSy = getSy(parent);
-            if(parentSy == 0){
-                parent = boss[parent];
-                continue;
-            }
-            if (i == 1 ) {
-                // IERC20(_sosk).transfer(parent,userRew*10/100);
-                peopleMoney[parent] += (userRew * 10) / 100;
-                overRewardTeamCoin[parent] += (userRew * 10) / 100;
-                overRewardTeam[parent] += (reward_usdt * 10) / 100;
-            } else if (i == 2) {
-                // IERC20(_sosk).transfer(parent,userRew*6/100);
-                peopleMoney[parent] += (userRew * 6) / 100;
-                overRewardTeamCoin[parent] += (userRew * 6) / 100;
-                overRewardTeam[parent] += (reward_usdt * 6) / 100;
-            } else if (i == 3 ) {
-                // IERC20(_sosk).transfer(parent,userRew*4/100);
-                peopleMoney[parent] += (userRew * 4) / 100;
-                overRewardTeamCoin[parent] += (userRew * 4) / 100;
-                overRewardTeam[parent] += (reward_usdt * 4) / 100;
-                // if(flag) return;
-            }
+        // userStakeTime[msg.sender] = block.timestamp;
+        // uint userRew = (reward_usdt * soskPrice) / 1e18;
+        // // IERC20(_sosk).transfer(msg.sender,userRew);
+        // peopleMoney[msg.sender] += userRew;
+        // overRewardCoin[msg.sender] += userRew;
+        // overReward[msg.sender] += reward_usdt;
+        // address parent = boss[msg.sender];
+        // teamTime[parent] = block.timestamp;
+        // bool flag;
+        // uint lvMax;
+        // uint rewardDate;
+        // uint lv = getUserLevel(msg.sender);
+        // for (uint i = 1; i < 15; i++) {
+        //     if (parent == address(0)) return;
+        //     uint parentSy = getSy(parent);
+        //     if(parentSy == 0){
+        //         parent = boss[parent];
+        //         continue;
+        //     }
+        //     if (i == 1 ) {
+        //         // IERC20(_sosk).transfer(parent,userRew*10/100);
+        //         peopleMoney[parent] += (userRew * 10) / 100;
+        //         overRewardTeamCoin[parent] += (userRew * 10) / 100;
+        //         overRewardTeam[parent] += (reward_usdt * 10) / 100;
+        //     } else if (i == 2) {
+        //         // IERC20(_sosk).transfer(parent,userRew*6/100);
+        //         peopleMoney[parent] += (userRew * 6) / 100;
+        //         overRewardTeamCoin[parent] += (userRew * 6) / 100;
+        //         overRewardTeam[parent] += (reward_usdt * 6) / 100;
+        //     } else if (i == 3 ) {
+        //         // IERC20(_sosk).transfer(parent,userRew*4/100);
+        //         peopleMoney[parent] += (userRew * 4) / 100;
+        //         overRewardTeamCoin[parent] += (userRew * 4) / 100;
+        //         overRewardTeam[parent] += (reward_usdt * 4) / 100;
+        //         // if(flag) return;
+        //     }
 
-            uint lvParent = getUserLevel(parent);
-            if (lv == lvParent && flag) {
-                parent = boss[parent];
-                continue;
-            }
-            if (lvMax > lvParent || lvParent == 0) {
-                parent = boss[parent];
-                continue;
-            }
-            if (lvParent > lvMax) {
-                //级差奖励
-                uint subLevel = lvParent - lvMax;
-                lvMax = lvParent;
-                rewardDate = (userRew * (subLevel * 10)) / 100;
-                peopleMoney[parent] += (userRew * (subLevel * 10)) / 100;
-                overRewardTeam2Coin[parent] +=
-                    (userRew * (subLevel * 10)) /
-                    100;
-                overRewardTeam2[parent] +=
-                    (reward_usdt * (subLevel * 10)) /
-                    100;
-                parent = boss[parent];
-                continue;
-            }
+        //     uint lvParent = getUserLevel(parent);
+        //     if (lv == lvParent && flag) {
+        //         parent = boss[parent];
+        //         continue;
+        //     }
+        //     if (lvMax > lvParent || lvParent == 0) {
+        //         parent = boss[parent];
+        //         continue;
+        //     }
+        //     if (lvParent > lvMax) {
+        //         //级差奖励
+        //         uint subLevel = lvParent - lvMax;
+        //         lvMax = lvParent;
+        //         rewardDate = (userRew * (subLevel * 10)) / 100;
+        //         peopleMoney[parent] += (userRew * (subLevel * 10)) / 100;
+        //         overRewardTeam2Coin[parent] +=
+        //             (userRew * (subLevel * 10)) /
+        //             100;
+        //         overRewardTeam2[parent] +=
+        //             (reward_usdt * (subLevel * 10)) /
+        //             100;
+        //         parent = boss[parent];
+        //         continue;
+        //     }
 
-            //平级奖励
-            if (lvMax == lvParent && lvParent > 2 && !flag) {
-                flag = true;
-                if (rewardDate == 0) {
-                    peopleMoney[parent] += (userRew * 10) / 100;
-                    overRewardTeam2Coin[parent] += (userRew * 10) / 100;
-                    overRewardTeam2[parent] += (reward_usdt * 10) / 100;
-                } else {
-                    peopleMoney[parent] += (rewardDate * 10) / 100;
-                    overRewardTeam2Coin[parent] += (rewardDate * 10) / 100;
-                    overRewardTeam2[parent] += (reward_usdt * 10) / 100;
-                }
-            }
+        //     //平级奖励
+        //     if (lvMax == lvParent && lvParent > 2 && !flag) {
+        //         flag = true;
+        //         if (rewardDate == 0) {
+        //             peopleMoney[parent] += (userRew * 10) / 100;
+        //             overRewardTeam2Coin[parent] += (userRew * 10) / 100;
+        //             overRewardTeam2[parent] += (reward_usdt * 10) / 100;
+        //         } else {
+        //             peopleMoney[parent] += (rewardDate * 10) / 100;
+        //             overRewardTeam2Coin[parent] += (rewardDate * 10) / 100;
+        //             overRewardTeam2[parent] += (reward_usdt * 10) / 100;
+        //         }
+        //     }
 
-            parent = boss[parent];
-        }
+        //     parent = boss[parent];
+        // }
     }
 
-    function claim2(uint num) public {
+    function claimTeam() public {
         require(msg.sender == tx.origin," is eoa");
-        require(peopleMoney[msg.sender] > num, "not balance");
-        peopleMoney[msg.sender] -= num;
-        IERC20(_sosk).transfer(msg.sender, num);
+        uint wDay = block.timestamp / 1 days;
+        isClaimTeam[wDay][msg.sender] = true;
+        uint reward_token = getRewardTeam(msg.sender);
+        // uint am = block.timestamp - userStakeTime[msg.send
+        require(reward_token > 0, "reward>0");
+        IERC20(_sosk).transfer(msg.sender, reward_token);
+        overRewardTeam[msg.sender] += reward_token;
     }
 
-    function setLevel(address addr, uint num) public onlyOwner {
-        userLevel[addr] = num;
-    }
+    
 }

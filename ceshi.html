@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BSC DEX UI</title>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.8.1/dist/ethers.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body>
+  <h1>BSC 订单簿挂单吃单界面</h1>
+  <button id="connectBtn">连接 MetaMask</button>
+  <p id="address">未连接</p>
+
+  <div>
+    <label>卖出代币合约（makerToken）: <input id="makerToken" /></label><br />
+    <label>买入代币合约（takerToken）: <input id="takerToken" /></label><br />
+    <label>卖出数量: <input id="makerAmount" /></label><br />
+    <label>买入数量: <input id="takerAmount" /></label><br />
+    <button id="makeOrder">挂单</button>
+  </div>
+
+  <h3>订单簿</h3>
+  <div id="orderbook"></div>
+
+  <h3>我的挂单</h3>
+  <div id="myOrders"></div>
+
+  <script>
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    let signer, userAddress;
+    const proxy = "0xdef1c0ded9bec7f1a1670819833240f027b25eff"; // 0x proxy
+
+    async function connect() {
+      await window.ethereum.request({ method: 'eth_requestAccounts' });
+      signer = await provider.getSigner();
+      userAddress = await signer.getAddress();
+      document.getElementById('address').innerText = userAddress;
+      fetchOrderbook();
+      setInterval(fetchOrderbook, 10000);
+    }
+
+    async function checkAndApprove(token, needed) {
+      const erc20 = new ethers.Contract(token, [
+        "function allowance(address owner, address spender) view returns (uint256)",
+        "function approve(address spender, uint256 amount) public returns (bool)"
+      ], signer);
+      const allowance = await erc20.allowance(userAddress, proxy);
+      if (ethers.toBigInt(allowance) < ethers.toBigInt(needed)) {
+        const tx = await erc20.approve(proxy, ethers.MaxUint256);
+        await tx.wait();
+        alert("已授权 " + token);
+      }
+    }
+
+    async function makeOrder() {
+      const makerToken = document.getElementById('makerToken').value;
+      const takerToken = document.getElementById('takerToken').value;
+      const makerAmount = ethers.parseUnits(document.getElementById('makerAmount').value, 18);
+      const takerAmount = ethers.parseUnits(document.getElementById('takerAmount').value, 18);
+
+      await checkAndApprove(makerToken, makerAmount);
+
+      const order = {
+        makerToken,
+        takerToken,
+        makerAmount: makerAmount.toString(),
+        takerAmount: takerAmount.toString(),
+        maker: userAddress,
+        taker: ethers.ZeroAddress,
+        expiry: Math.floor(Date.now() / 1000) + 3600,
+        salt: Date.now().toString(),
+        chainId: 56,
+        verifyingContract: proxy
+      };
+
+      const domain = {
+        name: "0x Protocol",
+        version: "3.0.0",
+        chainId: 56,
+        verifyingContract: proxy
+      };
+
+      const types = {
+        LimitOrder: [
+          { name: "makerToken", type: "address" },
+          { name: "takerToken", type: "address" },
+          { name: "makerAmount", type: "uint128" },
+          { name: "takerAmount", type: "uint128" },
+          { name: "maker", type: "address" },
+          { name: "taker", type: "address" },
+          { name: "expiry", type: "uint128" },
+          { name: "salt", type: "uint256" },
+          { name: "chainId", type: "uint256" },
+          { name: "verifyingContract", type: "address" }
+        ]
+      };
+
+      const signature = await signer.signTypedData(domain, types, order);
+      order.signature = signature;
+
+      const res = await axios.post("https://bsc.api.0x.org/orderbook/v1/order", order);
+      alert("挂单成功");
+      fetchOrderbook();
+    }
+
+    async function fetchOrderbook() {
+      const makerToken = document.getElementById('makerToken').value;
+      const takerToken = document.getElementById('takerToken').value;
+      if (!makerToken || !takerToken) return;
+
+      const res = await axios.get(`https://bsc.api.0x.org/orderbook/v1/orders?makerToken=${makerToken}&takerToken=${takerToken}`);
+      const orders = res.data.records;
+      const book = document.getElementById("orderbook");
+      const mine = document.getElementById("myOrders");
+      book.innerHTML = "";
+      mine.innerHTML = "";
+
+      for (let o of orders) {
+        const ord = o.order;
+        const div = document.createElement("div");
+        div.innerHTML = `卖出 ${ethers.formatUnits(ord.makerAmount, 18)} <br/>买入 ${ethers.formatUnits(ord.takerAmount, 18)}`;
+        const btn = document.createElement("button");
+        btn.textContent = "吃单";
+        btn.onclick = async () => {
+          await checkAndApprove(ord.takerToken, ord.takerAmount);
+          const fillAbi = ["function fillLimitOrder((address,address,address,address,uint128,uint128,uint128,uint128,uint256,uint256), bytes, uint128) external payable"];
+          const contract = new ethers.Contract(proxy, fillAbi, signer);
+          await contract.fillLimitOrder(ord, ord.signature, ord.takerAmount);
+          alert("吃单成功");
+        };
+        div.appendChild(btn);
+        book.appendChild(div);
+
+        if (ord.maker.toLowerCase() === userAddress.toLowerCase()) {
+          mine.appendChild(div.cloneNode(true));
+        }
+      }
+    }
+
+    document.getElementById("connectBtn").onclick = connect;
+    document.getElementById("makeOrder").onclick = makeOrder;
+  </script>
+</body>
+</html>
