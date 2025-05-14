@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>1inch Limit Order Book on BSC</title>
+</head>
+<body>
+    <button id="connectWallet">连接钱包</button>
+    <button id="createOrder">创建限价单</button>
+    <button id="fillOrder">吃限价单</button>
+    
+    <h2>查询订单簿</h2>
+    <button id="getOrderBook">获取订单簿</button>
+    <div id="orderBookContainer"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.0/dist/ethers.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@1inch/limit-order-protocol"></script>
+    <script>
+        let provider, signer, userAddress;
+
+        document.getElementById('connectWallet').addEventListener('click', async () => {
+            if (window.ethereum) {
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                await window.ethereum.request({ method: 'eth_requestAccounts' });
+                signer = provider.getSigner();
+                userAddress = await signer.getAddress();
+                console.log("钱包连接成功:", userAddress);
+            } else {
+                alert("请安装 MetaMask 或其他支持的 Web3 钱包！");
+            }
+        });
+
+        document.getElementById('createOrder').addEventListener('click', async () => {
+            // 提前授权
+            const tokenAddress = "0x45EA0af0c71eA2Fb161AF3b07F033cEe123386E8"; // 代币合约地址
+            const limitOrderAddress = "0x11111112542d85B3EF69AE05771c2dCCff4fAa26"; // 1inch 合约地址
+            const tokenAbi = [
+                "function approve(address spender, uint256 amount) public returns (bool)"
+            ];
+            const tokenContract = new ethers.Contract(tokenAddress, tokenAbi, signer);
+            const approveAmount = ethers.utils.parseUnits('100', 18);
+            const tx = await tokenContract.approve(limitOrderAddress, approveAmount);
+            await tx.wait();
+            console.log("授权成功！");
+            
+            // 创建限价单
+            await createLimitOrderBSC();
+        });
+
+        document.getElementById('fillOrder').addEventListener('click', async () => {
+            const orderHash = "0xOrderHash";  // 填充的限价单哈希值
+            await fillLimitOrder(orderHash);
+        });
+
+        document.getElementById('getOrderBook').addEventListener('click', async () => {
+            await getOrderBookBSC();
+        });
+
+        // 查询订单簿
+        async function getOrderBookBSC() {
+            const url = "https://api.1inch.io/v4.0/56/limit-order-book"; // 1inch BSC API 查询限价单接口
+            const params = {
+                sellToken: "0xTokenAddress", // 卖出代币的地址
+                buyToken: "0xTakerTokenAddress", // 买入代币的地址
+                chainId: 56, // BSC 的链 ID
+            };
+
+            const response = await fetch(`${url}?${new URLSearchParams(params)}`);
+            const data = await response.json();
+
+            console.log("查询的订单簿数据:", data);
+
+            // 你可以根据返回的数据格式在前端页面上展示订单簿
+            displayOrderBook(data);
+        }
+
+        // 展示订单簿
+        function displayOrderBook(data) {
+            const orderBookContainer = document.getElementById("orderBookContainer");
+            orderBookContainer.innerHTML = '';
+
+            if (data && data.sellOrders && data.buyOrders) {
+                // 显示卖单
+                const sellOrders = data.sellOrders.map(order => {
+                    return <div>Sell: ${order.amount} ${order.tokenSymbol} @ ${order.price}</div>;
+                }).join('');
+
+                // 显示买单
+                const buyOrders = data.buyOrders.map(order => {
+                    return <div>Buy: ${order.amount} ${order.tokenSymbol} @ ${order.price}</div>;
+                }).join('');
+
+                orderBookContainer.innerHTML = `
+                    <h3>Sell Orders</h3>
+                    ${sellOrders}
+                    <h3>Buy Orders</h3>
+                    ${buyOrders}
+                `;
+            } else {
+                orderBookContainer.innerHTML = '<p>没有可用的订单。</p>';
+            }
+        }
+    </script>
+</body>
+</html>

@@ -22,7 +22,7 @@ module.exports = {
     bscMain: {
       url: "https://binance.llamarpc.com",
       chainId: 56,
-      accounts: [process.env.API_KEY,]  // 从 .env 文件加载私钥
+      accounts: [process.env.PRIVATE_KEY,]  // 从 .env 文件加载私钥
     },
     hardhat: {
        // ← disable the 24 KB contract‑size limit
