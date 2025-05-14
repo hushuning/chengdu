@@ -978,5 +978,4 @@ contract DefiQS is Ownable {
         overRewardTeam[msg.sender] += reward_token;
     }
 
-    
 }

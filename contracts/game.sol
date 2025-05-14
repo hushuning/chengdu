@@ -65,7 +65,7 @@ contract BombGame is Admin {
     address public TEAM_ADDRESS = msg.sender; // 团队地址
     address public constant BURN_ADDRESS = address(0x000000000000000000000000000000000000dEaD); // 黑洞地址用于销毁
     address public  gameToken;// 游戏代币地址
-
+//钱钱钱
     struct Player {
         uint256 amount; // 玩家投入金额
         uint8 room;     // 玩家选择房间
