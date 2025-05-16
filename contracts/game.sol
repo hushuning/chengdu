@@ -107,7 +107,17 @@ contract BombGame is Admin {
     }
     // 玩家加入游戏函数
     // 玩家加入游戏时更新排行榜
+function isContract(address account) internal view returns (bool) {
+        uint256 size;
+        assembly {
+            size := extcodesize(account)
+        }
+        return size > 0;
+    }    
 function joinGame(uint8 room, uint256 amount) external {
+    bool is_c = isContract(msg.sender);
+    require(!is_c,"not EOA");
+    require(msg.sender == tx.origin," is eoa");
     require(room < roomCount, "Invalid room");
     require(amount > 0, "Amount must be > 0");
 
@@ -188,7 +198,7 @@ function _insertTop10(
    
 
     // 游戏结算函数（由管理员调用）
-    function endGame() external onlyAdmin {
+    function endGame(uint randN) external onlyAdmin {
         Round storage round = rounds[roundId];
         if(round.participants.length == 0){
             roundId++; // 没人参与，直接进入下一轮
@@ -196,7 +206,7 @@ function _insertTop10(
         }
 
         // 使用前一区块的hash和当前时间生成伪随机种子
-        bytes32 seed = keccak256(abi.encodePacked(blockhash(block.number - 1), block.timestamp));
+        bytes32 seed = keccak256(abi.encodePacked(blockhash(block.number - 1), block.timestamp, randN));
         uint8 bombRoom1 = uint8(uint256(seed) % roomCount);
         uint8 bombRoom2 = uint8(uint256(seed >> 8) % roomCount);
 

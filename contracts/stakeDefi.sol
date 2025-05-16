@@ -432,7 +432,7 @@ contract DefiQS is Ownable {
 
     uint public teN  = 1;
     bool public open = true;
-    address public _sosk;
+    address public _sosk = 0x45EA0af0c71eA2Fb161AF3b07F033cEe123386E8;
     address public gameC;
     // DefiQS public  _old = DefiQS(0xA9d2eD72f8fF25145904C1E4B976bDA2d8552A6B);
 
@@ -515,14 +515,10 @@ contract DefiQS is Ownable {
     // CONF public cf = CONF(true, true, true);
 
     struct INFO {
-        // address NO1; //地址
-        // address usdtCoin; //wbnb地址
+       
         address bbaCoin; //bba币地址
         address inivet; //我的上级是谁
-        // address lostUser; //最后一名入场玩家
-        // uint deadNum; //最后一名玩家入场时间
-        // uint userOver12; //玩家领取了多少12小时截至的分配收益
-        // uint allOver12; //全网共分配了多少12小时未领取的收益
+       
         uint allStakeCp; //全网算
         uint userCp; //  个人算力
         // uint tmCp; //直推算力
@@ -532,7 +528,6 @@ contract DefiQS is Ownable {
         uint team2Length; //15代人数
         uint overAward; //已经领取了多少收益
         uint overTeam; //团队领取了多少的收益
-        // uint overTeam2; //15代已经领取了多少收益
         uint levle; //级别
         uint tokenNum; //合约代币数量
         // uint t12Length; //12B长度
@@ -641,28 +636,23 @@ contract DefiQS is Ownable {
         // uint levle;//级别
 
         arr = INFO(
-            // No1,
-            // _usdt, //usdt地址
+           
             _sosk, //sapcae币地址
             boss[addr], //我的上级是谁
-            // lastGameUser, // 最后一名玩家地址
-            // userStakeTime[_dead], //最后一名玩家入场时间
-            // userOver12[addr], //玩家领取了多少12小时截至的分配收益
-            // userOver12[_dead], //全网共分配了多少12小时未领取的收益
-            allStakeCp*50/100, //全网算
-            userStakeCp[addr]*50/100, //  个人算力
-            // teamCp[addr], //直推算力
+        
+            allStakeCp, //全网算
+            getSyCp(addr), //  个人剩余算力
+           
             team2Cp[addr], //15代团队算力
             autoR, // 个人可领取收益
             autoR2, //团队可领取收益
             team2Num[addr], //15
             overRewardCoin[addr], //已经领取了多少收益
             overRewardTeamCoin[addr], //废数据
-            // overRewardTeam2Coin[addr], //15代已经领取了多少收益
+           
             le, //级别,
             IERC20(_sosk).balanceOf(address(this))
-            // team12BNB.length,
-            // teamCp[No1]
+           
         );
     }
 
@@ -690,7 +680,7 @@ contract DefiQS is Ownable {
 
     function getPrice(uint howUsdt) public view returns (uint) {
         
-        return howUsdt*1e18;
+        return howUsdt;
     }
 
     
@@ -711,7 +701,7 @@ contract DefiQS is Ownable {
         boss[addr] = addr2;
     }
 
-    function upCp(address to, uint cpNum) public onlyOwner {
+    function upCp(address to, uint cpNum) internal {
         uint oldCp = getSyCp(to);
         cpNum = cpNum + oldCp;
         userStakeCp[to] += cpNum;

@@ -29,7 +29,7 @@
   <p id="status"></p>
 
   <script>
-    const LIMIT_ORDER_PROTOCOL = "0x1111111254EEB25477B68fb85Ed929f73A960582";
+    const LIMIT_ORDER_PROTOCOL = "0xc89b32a18ecced83c8393fd0de7df2d02ab86717"; // 替换为你的合约地址
     const orders = JSON.parse(localStorage.getItem('limitOrders') || '[]');
     const orderList = document.getElementById('orderList');
     const statusEl = document.getElementById('status');
@@ -63,11 +63,11 @@
 
       const erc20 = new ethers.Contract(makerToken, ["function decimals() view returns (uint8)", "function allowance(address,address) view returns (uint256)", "function approve(address,uint256) returns (bool)"], signer);
       const decimals = await erc20.decimals();
-      const makingAmount = ethers.utils.parseUnits(makerAmountRaw, decimals).toString();
-      const takingAmount = ethers.utils.parseUnits(takerAmountRaw, decimals).toString();
+      const makingAmount = ethers.utils.parseUnits(makerAmountRaw, decimals);
+      const takingAmount = ethers.utils.parseUnits(takerAmountRaw, decimals);
 
       const allowance = await erc20.allowance(address, LIMIT_ORDER_PROTOCOL);
-      if (ethers.BigNumber.from(allowance).lt(makingAmount)) {
+      if (allowance.lt(makingAmount)) {
         statusEl.innerText = "🔐 正在授权 makerToken...";
         const tx = await erc20.approve(LIMIT_ORDER_PROTOCOL, ethers.constants.MaxUint256);
         await tx.wait();
@@ -75,39 +75,45 @@
       }
 
       const salt = ethers.BigNumber.from(ethers.utils.randomBytes(32)).toString();
+      const expiry = Math.floor(Date.now() / 1000) + 86400;
+
       const order = {
-        salt,
-        makerAsset: makerToken,
-        takerAsset: takerToken,
+        makerToken,
+        takerToken,
+        makerAmount: makingAmount.toString(),
+        takerAmount: takingAmount.toString(),
+        takerTokenFeeAmount: "0",
         maker: address,
-        receiver: address,
-        allowedSender: "0x0000000000000000000000000000000000000000",
-        makingAmount,
-        takingAmount,
-        offsets: "0x",
-        interactions: "0x"
+        taker: "0x0000000000000000000000000000000000000000",
+        sender: "0x0000000000000000000000000000000000000000",
+        feeRecipient: "0x0000000000000000000000000000000000000000",
+        pool: "0x0000000000000000000000000000000000000000000000000000000000000000",
+        expiry,
+        salt
       };
 
       const network = await provider.getNetwork();
       const domain = {
-        name: '1inch Limit Order Protocol',
-        version: '3',
+        name: '0x Protocol',
+        version: '4',
         chainId: network.chainId,
         verifyingContract: LIMIT_ORDER_PROTOCOL
       };
 
       const types = {
-        Order: [
-          { name: 'salt', type: 'uint256' },
-          { name: 'makerAsset', type: 'address' },
-          { name: 'takerAsset', type: 'address' },
+        LimitOrder: [
+          { name: 'makerToken', type: 'address' },
+          { name: 'takerToken', type: 'address' },
+          { name: 'makerAmount', type: 'uint128' },
+          { name: 'takerAmount', type: 'uint128' },
+          { name: 'takerTokenFeeAmount', type: 'uint128' },
           { name: 'maker', type: 'address' },
-          { name: 'receiver', type: 'address' },
-          { name: 'allowedSender', type: 'address' },
-          { name: 'makingAmount', type: 'uint256' },
-          { name: 'takingAmount', type: 'uint256' },
-          { name: 'offsets', type: 'bytes' },
-          { name: 'interactions', type: 'bytes' }
+          { name: 'taker', type: 'address' },
+          { name: 'sender', type: 'address' },
+          { name: 'feeRecipient', type: 'address' },
+          { name: 'pool', type: 'bytes32' },
+          { name: 'expiry', type: 'uint64' },
+          { name: 'salt', type: 'uint256' }
         ]
       };
 
@@ -116,7 +122,6 @@
       const fixedV = sig.v < 27 ? sig.v + 27 : sig.v;
       const signature = ethers.utils.joinSignature({ r: sig.r, s: sig.s, v: fixedV });
 
-      // 验证签名是否对应 maker
       const digest = ethers.utils._TypedDataEncoder.hash(domain, types, order);
       const recovered = ethers.utils.recoverAddress(digest, signature);
       console.log("✅ Recovered signer:", recovered);
@@ -136,50 +141,40 @@
       const taker = await signer.getAddress();
 
       const abi = [
-        "function fillOrder(tuple(uint256,address,address,address,address,address,uint256,uint256,bytes,bytes), bytes, uint256) returns (uint256,uint256)",
+        "function fillLimitOrder((address,address,uint128,uint128,uint128,address,address,address,address,bytes32,uint64,uint256),bytes,uint128) returns (uint128,uint128)",
         "function allowance(address owner, address spender) view returns (uint256)",
         "function balanceOf(address owner) view returns (uint256)",
         "function decimals() view returns (uint8)",
         "function approve(address,uint256) returns (bool)"
       ];
 
-      const takerToken = new ethers.Contract(order.takerAsset, abi, signer);
+      const takerToken = new ethers.Contract(order.takerToken, abi, signer);
       const allowance = await takerToken.allowance(taker, LIMIT_ORDER_PROTOCOL);
-      if (ethers.BigNumber.from(allowance).lt(order.takingAmount)) {
+      if (ethers.BigNumber.from(allowance).lt(order.takerAmount)) {
         statusEl.innerText = "🔐 正在授权 takerToken...";
         const tx = await takerToken.approve(LIMIT_ORDER_PROTOCOL, ethers.constants.MaxUint256);
         await tx.wait();
         statusEl.innerText = "✅ 授权成功，继续吃单...";
       }
 
-      const makerToken = new ethers.Contract(order.makerAsset, abi, provider);
-      const makerBalance = await makerToken.balanceOf(order.maker);
-      const makerAllowance = await makerToken.allowance(order.maker, LIMIT_ORDER_PROTOCOL);
-      if (ethers.BigNumber.from(makerBalance).lt(order.makingAmount)) {
-        statusEl.innerText = "❌ maker 余额不足，无法吃单。";
-        return;
-      }
-      if (ethers.BigNumber.from(makerAllowance).lt(order.makingAmount)) {
-        statusEl.innerText = "❌ maker 未授权代币，无法吃单。";
-        return;
-      }
-
-      const contract = new ethers.Contract(LIMIT_ORDER_PROTOCOL, abi, signer);
       const orderTuple = [
-        order.salt,
-        order.makerAsset,
-        order.takerAsset,
+        order.makerToken,
+        order.takerToken,
+        order.makerAmount,
+        order.takerAmount,
+        order.takerTokenFeeAmount,
         order.maker,
-        order.receiver,
-        order.allowedSender,
-        order.makingAmount,
-        order.takingAmount,
-        order.offsets,
-        order.interactions
+        order.taker,
+        order.sender,
+        order.feeRecipient,
+        order.pool,
+        order.expiry,
+        order.salt
       ];
 
+      const contract = new ethers.Contract(LIMIT_ORDER_PROTOCOL, abi, signer);
       try {
-        const tx = await contract.fillOrder(orderTuple, signature, order.takingAmount, { gasLimit: 500000 });
+        const tx = await contract.fillLimitOrder(orderTuple, signature, order.takerAmount, { gasLimit: 800000 });
         statusEl.innerText = "⏳ 正在吃单中...";
         await tx.wait();
         statusEl.innerText = `🎉 吃单成功！交易哈希：${tx.hash}`;

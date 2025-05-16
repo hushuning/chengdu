@@ -35,13 +35,16 @@ async function deploy() {
   // console.log("lingqu合约地址",
   //   lingqu.target
   // );
-  const Fire = await hre.ethers.getContractFactory("Fire");
+     const [s1] = await hre.ethers.getSigners();  
+  console.log("signer",s1.address);
+  // return;
+  const Fire = await hre.ethers.getContractFactory("LimitOrderProtocol");
   const fire = await Fire.deploy();
   ccAddr.fr = fire.address;
  
 
-  console.log("fir合约地址",
-    fire.address
+  console.log("limit合约地址",
+    fire.address,fire.target
   );
   
   // const M2 = await hre.ethers.getContractFactory("M2");
