@@ -1,4 +1,4 @@
-游戏合约 0xb90A58D6E5CB2534719d78cCee3669eb666c1e2b
+游戏合约 0x8436Cd7Ab4AE55Fe1825B1EAf139794e16030c1A
 游戏代币 ：0x45EA0af0c71eA2Fb161AF3b07F033cEe123386E8
 // 查询用户个人信息
 function getMyStats(address user) external view returns (
@@ -19,8 +19,11 @@ function getGameStatistics() external view returns (
 function joinGame(uint8 room, uint256 amount) external     
 第一个参数是1到10选择房间号，第二个是参与代币数量，需要乘以1e18;
 
-
-
-
-defi合约部分     DEFI地址 0xa7aa6034573d9e251d8cea23b03D40fb5314bd0e
-
+function getGame(uint roud) external view returns (uint256 ,uint256) {
+        return (gameResult[roud][0],gameResult[roud][1]);
+    }
+填写参数轮次编号，返回 轮次的爆炸的两个房间号，前端定时2到3秒查询一次即可，。    
+function getRoomMoney() external view returns (uint256[10] memory rM) {
+        rM = roomMoney[roundId];
+    }
+    获取当前轮次所有房间的分别累计下注金额

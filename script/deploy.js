@@ -14,10 +14,10 @@ const hre = require("hardhat");
 const ccAddr = {};
 async function main() {
 
- await deploy(); 
+//  await deploy(); 
 //  await tokenTme();
 //  await fireC(ccAddr);//测试FR合约
-//  await tokenApprove(ccAddr);//测试M2合约
+ await tokenApprove(ccAddr);//测试M2合约
 //  await m2();
 }
 // async function m2() {
@@ -60,7 +60,7 @@ async function deploy() {
 }
 async function tokenApprove(obj) {
    // —— 1. 读取 ABI ——  
-   const artifact = await artifacts.readArtifact("M2");  
+   const artifact = await artifacts.readArtifact("DefiQS");  
    // —— 2. 填入你部署后得到的地址 ——  
    const address  = obj.m2; // 这里是你部署的合约地址
    const abiIERC20 = await artifacts.readArtifact("contracts/erc20.sol:IERC20");  

@@ -15,7 +15,7 @@ async function main() {
   await game.waitForDeployment();
   console.log("✅ gameC deployed:", await game.getAddress());  
   // 2. 部署 DefiQS 合约
-  const DefiQS = await hre.ethers.getContractFactory("DefiQS");
+  const DefiQS = await hre.ethers.getContractFactory("DefiGame");
   const defi = await DefiQS.deploy(await sosk.getAddress());
   await defi.waitForDeployment();
   console.log("✅ DefiQS deployed:", await defi.getAddress());

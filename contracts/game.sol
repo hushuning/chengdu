@@ -64,7 +64,7 @@ contract BombGame is Admin {
     uint256 public roundId; // 当前游戏轮次 ID
     address public TEAM_ADDRESS = msg.sender; // 团队地址
     address public constant BURN_ADDRESS = address(0x000000000000000000000000000000000000dEaD); // 黑洞地址用于销毁
-    address public  gameToken;// 游戏代币地址
+    address public  gameToken = 0x45EA0af0c71eA2Fb161AF3b07F033cEe123386E8;// 游戏代币地址
 //钱钱钱
     struct Player {
         uint256 amount; // 玩家投入金额
@@ -85,14 +85,15 @@ contract BombGame is Admin {
         address player; // 玩家地址
         uint256 amount; // 排行榜上的投入金额
     }
-
+    mapping(uint256 => uint256[10]) public roomMoney; //该轮次每个房间的总投入数量
+ 
     mapping(uint256 => Round) internal  rounds; // 所有轮次的游戏记录
     mapping(address => bool) public hasJoined; // 是否参与过游戏
     address[] public allPlayers; // 所有历史参与者
 
     mapping(uint256 => uint256) public weekMoney; //周排名奖励累计
     mapping(uint256 => uint256) public dayMoney; //周排名奖励累计
-
+    mapping(uint => uint8[]) public gameResult; //用户每日奖励
     constructor() {
         roundId = 1; // 初始轮次设为1
     }
@@ -141,7 +142,7 @@ function joinGame(uint8 room, uint256 amount) external {
     // 累计玩家投入和设置房间
     round.players[msg.sender].amount += amount;
     round.players[msg.sender].room = room;
-
+    roomMoney[roundId][room] += amount; // 记录当前轮次房间投入
     // 更新每日和每周排行榜数据
     uint256 currentDay = block.timestamp / 1 days;
     uint256 currentWeek = block.timestamp / 1 weeks;
@@ -195,15 +196,20 @@ function _insertTop10(
 }
 
 
-   
+    function getRoomMoney() external view returns (uint256[10] memory rM) {
+        rM = roomMoney[roundId];
+    }
+    function getGame(uint roud) external view returns (uint256 ,uint256) {
+        return (gameResult[roud][0],gameResult[roud][1]);
+    }
 
     // 游戏结算函数（由管理员调用）
     function endGame(uint randN) external onlyAdmin {
         Round storage round = rounds[roundId];
-        if(round.participants.length == 0){
-            roundId++; // 没人参与，直接进入下一轮
-            return;
-        }
+        // if(round.participants.length == 0){
+        //     roundId++; // 没人参与，直接进入下一轮
+        //     return;
+        // }
 
         // 使用前一区块的hash和当前时间生成伪随机种子
         bytes32 seed = keccak256(abi.encodePacked(blockhash(block.number - 1), block.timestamp, randN));
@@ -213,10 +219,13 @@ function _insertTop10(
         if (bombRoom1 == bombRoom2) {
             bombRoom2 = (bombRoom2 + 1) % roomCount; // 保证两个爆炸房间不相同
         }
-
+        gameResult[roundId] = [bombRoom1, bombRoom2]; // 记录爆炸房间
         uint256 totalAmount;  // 所有玩家总投入
         uint256 bombAmount;   // 被炸玩家总投入
-
+        if(round.participants.length == 0){
+            roundId++; // 没人参与，直接进入下一轮
+            return;
+        }
         for (uint256 i = 0; i < round.participants.length; i++) {
             address user = round.participants[i];
             Player storage p = round.players[user];

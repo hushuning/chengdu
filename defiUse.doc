@@ -1,0 +1,89 @@
+DefiGame 合约前端调用文档
+🔗 主网地址（BSC Mainnet）：0xa7aa6034573d9e251d8cea23b03D40fb5314bd0e
+
+📦 ABI：请使用该合约的编译 ABI（或提取所需方法的 ABI 片段）
+
+✅ 合约初始化
+ts
+复制
+编辑
+import { ethers } from "ethers";
+
+const contract = new ethers.Contract(
+  "0xa7aa6034573d9e251d8cea23b03D40fb5314bd0e",
+  abi,
+  signer
+);
+1. getPrice(uint howUsdt) → uint
+📌 功能：计算用户需要质押多少 _sosk TOKEN
+调用示例：
+ts
+复制
+编辑
+const inputUSDT = ethers.utils.parseUnits("100", 18); // 100 USDT
+const tokenAmount = await contract.getPrice(inputUSDT);
+console.log(tokenAmount.toString()); // 返回的 `_sosk` token 数量（无小数）
+2. stake(address _invite, uint howUnum)
+📌 功能：用户质押 USDT 等值的 _sosk 代币，并绑定推荐人
+步骤：
+用户先 approve _sosk 合约授权；
+
+再调用 stake()。
+
+示例：
+ts
+复制
+编辑
+const howUnum = ethers.utils.parseUnits("100", 18); // 100 USDT
+const inviteAddress = "0x1234..."; // 推荐人地址
+
+await contract.stake(inviteAddress, howUnum);
+3. claimUser()
+📌 功能：领取用户的个人算力收益
+示例：
+ts
+复制
+编辑
+await contract.claimUser();
+4. claimTeam()
+📌 功能：领取用户的团队收益（由推荐网络产生）
+示例：
+ts
+复制
+编辑
+await contract.claimTeam();
+5. getInfo(address addr) → INFO struct
+📌 功能：获取用户完整收益与身份信息
+示例：
+ts
+复制
+编辑
+const info = await contract.getInfo(userAddress);
+返回结构 INFO：
+字段	类型	说明
+bbaCoin	address	_sosk 代币地址
+inivet	address	邀请人地址
+allStakeCp	uint	全网总算力
+userCp	uint	用户有效算力（衰减后）
+teamCp2	uint	团队算力（15代）
+userAward	uint	可领取个人奖励
+teamLength	uint	直推人数
+team2Length	uint	团队总人数（最多15级）
+overAward	uint	已领取总奖励
+levle	uint	用户等级（1-5）
+tokenNum	uint	合约剩余 TOKEN 数量
+
+6. getUserReward(address) → uint
+📌 功能：查询今日可以领取的个人奖励
+ts
+复制
+编辑
+const reward = await contract.getUserReward(userAddress);
+7. getRewardTeam(address) → uint
+📌 功能：查询今日可以领取的团队奖励
+ts
+复制
+编辑
+const reward = await contract.getRewardTeam(userAddress);
+⛓️ 需要授权的代币合约地址（_sosk）
+地址：合约中 _sosk 字段指定的 token 地址，调用 getInfo() 或查看源码初始化。
