@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Order API Tester</title>
+</head>
+<body>
+  <h1>Order API Web Tester</h1>
+
+  <h2>Create Order</h2>
+  <input id="user" placeholder="User Address" /><br>
+  <input id="sig" placeholder="Signature" /><br>
+  <textarea id="data" placeholder='{"price":100,"amount":1}'></textarea><br>
+  <button onclick="createOrder()">POST /orders</button>
+  <pre id="createOut"></pre>
+
+  <h2>Get Orders (by address)</h2>
+  <input id="queryUser" placeholder="User Address" /><br>
+  <button onclick="getOrders()">GET /orders</button>
+  <pre id="getOut"></pre>
+
+  <h2>Get All Orders</h2>
+  <button onclick="getAll()">GET /orders/all</button>
+  <pre id="getAllOut"></pre>
+
+  <h2>Delete Order</h2>
+  <input id="delSig" placeholder="Signature" /><br>
+  <button onclick="deleteOrder()">DELETE /orders</button>
+  <pre id="delOut"></pre>
+
+  <script>
+    const base = '';
+
+    function createOrder() {
+      const user = document.getElementById('user').value;
+      const sig = document.getElementById('sig').value;
+      const data = document.getElementById('data').value;
+      fetch(base + '/orders', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          user_address: user,
+          signature: sig,
+          order_data: JSON.parse(data)
+        })
+      }).then(r => r.json()).then(j => {
+        document.getElementById('createOut').innerText = JSON.stringify(j, null, 2);
+      });
+    }
+
+    function getOrders() {
+      const user = document.getElementById('queryUser').value;
+      fetch(base + '/orders?user_address=' + encodeURIComponent(user))
+        .then(r => r.json()).then(j => {
+          document.getElementById('getOut').innerText = JSON.stringify(j, null, 2);
+        });
+    }
+
+    function getAll() {
+      fetch(base + '/orders/all').then(r => r.json()).then(j => {
+        document.getElementById('getAllOut').innerText = JSON.stringify(j, null, 2);
+      });
+    }
+
+    function deleteOrder() {
+      const sig = document.getElementById('delSig').value;
+      fetch(base + '/orders?signature=' + encodeURIComponent(sig), {
+        method: 'DELETE'
+      }).then(r => r.json()).then(j => {
+        document.getElementById('delOut').innerText = JSON.stringify(j, null, 2);
+      });
+    }
+  </script>
+</body>
+</html>
