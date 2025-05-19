@@ -24,15 +24,29 @@
   </form>
 
   <h2>📜 已挂出的限价单</h2>
+  <button id="clearOrdersBtn">🗑️ 清空挂单</button>
   <div id="orderList"></div>
+
+  <h2>📈 查询用户历史成交</h2>
+  <form id="historyForm">
+    <label>地址:</label><br />
+    <input type="text" id="historyAddr" placeholder="0x..." required><br />
+    <label>起始索引 (start):</label><br />
+    <input type="number" id="historyStart" value="0" required><br />
+    <label>查询数量 (forNum, 最大100):</label><br />
+    <input type="number" id="historyCount" value="10" min="1" max="100" required><br /><br />
+    <button type="submit">🔍 查询历史成交</button>
+  </form>
+  <div id="historyResult"></div>
 
   <p id="status"></p>
 
   <script>
-    const LIMIT_ORDER_PROTOCOL = "0x62d1e5d2980861fff38c78d786e9c009fb478abe"; // 替换为你的合约地址
+    const LIMIT_ORDER_PROTOCOL = "0x926d588531571a1c5d561b2a0cef0017edb3e643";
     const orders = JSON.parse(localStorage.getItem('limitOrders') || '[]');
     const orderList = document.getElementById('orderList');
     const statusEl = document.getElementById('status');
+    const historyResult = document.getElementById('historyResult');
 
     const renderOrders = () => {
       orderList.innerHTML = "";
@@ -46,8 +60,18 @@
         orderList.appendChild(div);
       });
     };
-
     renderOrders();
+
+    document.getElementById('clearOrdersBtn').addEventListener('click', () => {
+      if (orders.length === 0) {
+        statusEl.innerText = "⚠️ 当前没有挂单，无需清空。";
+        return;
+      }
+      orders.length = 0;
+      localStorage.setItem('limitOrders', JSON.stringify(orders));
+      renderOrders();
+      statusEl.innerText = "🧹 已清空所有挂单。";
+    });
 
     document.getElementById('orderForm').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -77,60 +101,55 @@
       const salt = ethers.BigNumber.from(ethers.utils.randomBytes(32)).toString();
       const expiry = Math.floor(Date.now() / 1000) + 86400;
 
-      const order = {
-        makerToken,
-        takerToken,
-        makerAmount: makingAmount.toString(),
-        takerAmount: takingAmount.toString(),
-        // takerTokenFeeAmount: "1",
-        maker: address,
-        taker: "0x0000000000000000000000000000000000000000",
-        sender: "0x0000000000000000000000000000000000000000",
-        // feeRecipient: "0x99a190101E3FF57b258ae66243ED061Fc4AcbcE1",
-        pool: "0x0000000000000000000000000000000000000000000000000000000000000000",
-        expiry,
-        salt
-      };
+      const order = { makerToken, takerToken, makerAmount: makingAmount.toString(), takerAmount: takingAmount.toString(), maker: address, taker: ethers.constants.AddressZero, sender: ethers.constants.AddressZero, pool: ethers.constants.HashZero, expiry, salt };
 
       const network = await provider.getNetwork();
-      const domain = {
-        name: '0x Protocol',
-        version: '4',
-        chainId: network.chainId,
-        verifyingContract: LIMIT_ORDER_PROTOCOL
-      };
-
-      const types = {
-        LimitOrder: [
-          { name: 'makerToken', type: 'address' },
-          { name: 'takerToken', type: 'address' },
-          { name: 'makerAmount', type: 'uint128' },
-          { name: 'takerAmount', type: 'uint128' },
-          // { name: 'takerTokenFeeAmount', type: 'uint128' },
-          { name: 'maker', type: 'address' },
-          { name: 'taker', type: 'address' },
-          { name: 'sender', type: 'address' },
-          // { name: 'feeRecipient', type: 'address' },
-          { name: 'pool', type: 'bytes32' },
-          { name: 'expiry', type: 'uint64' },
-          { name: 'salt', type: 'uint256' }
-        ]
-      };
+      const domain = { name: '0x Protocol', version: '4', chainId: network.chainId, verifyingContract: LIMIT_ORDER_PROTOCOL };
+      const types = { LimitOrder: [
+        { name: 'makerToken', type: 'address' },
+        { name: 'takerToken', type: 'address' },
+        { name: 'makerAmount', type: 'uint128' },
+        { name: 'takerAmount', type: 'uint128' },
+        { name: 'maker', type: 'address' },
+        { name: 'taker', type: 'address' },
+        { name: 'sender', type: 'address' },
+        { name: 'pool', type: 'bytes32' },
+        { name: 'expiry', type: 'uint64' },
+        { name: 'salt', type: 'uint256' }
+      ]};
 
       const rawSignature = await signer._signTypedData(domain, types, order);
       const sig = ethers.utils.splitSignature(rawSignature);
-      const fixedV = sig.v < 27 ? sig.v + 27 : sig.v;
-      const signature = ethers.utils.joinSignature({ r: sig.r, s: sig.s, v: fixedV });
-
-      const digest = ethers.utils._TypedDataEncoder.hash(domain, types, order);
-      const recovered = ethers.utils.recoverAddress(digest, signature);
-      console.log("✅ Recovered signer:", recovered);
-      console.log("🧾 Expected maker:", order.maker);
+      const v = sig.v < 27 ? sig.v + 27 : sig.v;
+      const signature = ethers.utils.joinSignature({ r: sig.r, s: sig.s, v });
 
       orders.push({ order, signature });
       localStorage.setItem('limitOrders', JSON.stringify(orders));
       statusEl.innerText = "✅ 限价单已签名并保存！";
       renderOrders();
+    });
+
+    document.getElementById('historyForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      historyResult.innerText = '';
+      const addr = document.getElementById('historyAddr').value.trim();
+      const start = parseInt(document.getElementById('historyStart').value);
+      const count = parseInt(document.getElementById('historyCount').value);
+
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const contract = new ethers.Contract(LIMIT_ORDER_PROTOCOL,
+        ["function getArry(address,uint256,uint256) view returns (uint256[100][4])"],
+        provider
+      );
+
+      try {
+        const result = await contract.getArry(addr, start, count);
+        // 仅显示前 count 条记录
+        const sliced = result.map(arr => arr.slice(0, count));
+        historyResult.innerHTML = `<pre>${JSON.stringify(sliced, null, 2)}</pre>`;
+      } catch (err) {
+        historyResult.innerText = '❌ 查询失败：' + err.message;
+      }
     });
 
     async function fillOrder(index) {
@@ -141,16 +160,13 @@
       const taker = await signer.getAddress();
 
       const abi = [
-        "function fillLimitOrder((address,address,uint128,uint128,uint128,address,address,address,address,bytes32,uint64,uint256),bytes,uint128) returns (uint128,uint128)",
+        "function fillLimitOrder((address,address,uint128,uint128,address,address,address,bytes32,uint64,uint256),bytes,uint128) returns (uint128,uint128)",
         "function allowance(address owner, address spender) view returns (uint256)",
-        "function balanceOf(address owner) view returns (uint256)",
-        "function decimals() view returns (uint8)",
         "function approve(address,uint256) returns (bool)"
       ];
-
       const takerToken = new ethers.Contract(order.takerToken, abi, signer);
-      const allowance = await takerToken.allowance(taker, LIMIT_ORDER_PROTOCOL);
-      if (ethers.BigNumber.from(allowance).lt(order.takerAmount)) {
+
+      if ((await takerToken.allowance(taker, LIMIT_ORDER_PROTOCOL)).lt(order.takerAmount)) {
         statusEl.innerText = "🔐 正在授权 takerToken...";
         const tx = await takerToken.approve(LIMIT_ORDER_PROTOCOL, ethers.constants.MaxUint256);
         await tx.wait();
@@ -158,28 +174,17 @@
       }
 
       const orderTuple = [
-        order.makerToken,
-        order.takerToken,
-        order.makerAmount,
-        order.takerAmount,
-        // order.takerTokenFeeAmount,
-        order.maker,
-        order.taker,
-        order.sender,
-        // order.feeRecipient,
-        order.pool,
-        order.expiry,
-        order.salt
+        order.makerToken, order.takerToken, order.makerAmount, order.takerAmount,
+        order.maker, order.taker, order.sender, order.pool, order.expiry, order.salt
       ];
 
-      const contract = new ethers.Contract(LIMIT_ORDER_PROTOCOL, abi, signer);
+      const contractFill = new ethers.Contract(LIMIT_ORDER_PROTOCOL, abi, signer);
       try {
-        const tx = await contract.fillLimitOrder(orderTuple, signature, order.takerAmount, { gasLimit: 800000 });
+        const tx = await contractFill.fillLimitOrder(orderTuple, signature, order.takerAmount, { gasLimit: 800000 });
         statusEl.innerText = "⏳ 正在吃单中...";
         await tx.wait();
         statusEl.innerText = `🎉 吃单成功！交易哈希：${tx.hash}`;
       } catch (err) {
-        console.error(err);
         statusEl.innerText = "❌ 吃单失败：" + err.message;
       }
     }

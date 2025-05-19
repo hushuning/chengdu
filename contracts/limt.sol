@@ -132,7 +132,7 @@ contract LimitOrderProtocol is Ownable {
         LimitOrder calldata order,
         bytes calldata signature,
         uint128 takerTokenFillAmount
-    ) external returns (uint128, uint128) {
+    ) external returns (uint, uint) {
         require(block.timestamp <= order.expiry, "Order expired");
         require(order.taker == address(0) || order.taker == msg.sender, "Taker not allowed");
         require(order.sender == address(0) || order.sender == msg.sender, "Sender not allowed");
@@ -147,38 +147,45 @@ contract LimitOrderProtocol is Ownable {
         require(recovered == order.maker, "Invalid signature");
 
         uint256[4] memory temp;
-
+        uint tkAmoutn;
+        uint mkAmoutn;
         if (order.makerToken == _usdt) {
             order.takerAmount; // value is not changed since calldata is immutable
             temp[0] = 1;
             temp[1] = block.timestamp;
             temp[2] = order.makerAmount;
             temp[3] = (uint256(order.takerAmount) * 95) / 100;
+            tkAmoutn = (uint256(order.takerAmount) * 95) / 100;
+            IERC20(order.takerToken).transferFrom(order.taker, address(this), (uint256(order.takerAmount) * 5) / 100);
+            mkAmoutn = order.makerAmount;
             userHistory[order.maker].push(temp);
             temp[0] = 2;
-            userHistory[order.taker].push(temp);
+            userHistory[msg.sender].push(temp);
         } else {
             temp[0] = 2;
             temp[1] = block.timestamp;
             temp[3] = (uint256(order.makerAmount) * 95) / 100;
+            mkAmoutn = (uint256(order.makerAmount) * 95) / 100;
+            IERC20(order.makerToken).transferFrom(order.maker, address(this), (uint256(order.makerAmount) * 5) / 100);
+            tkAmoutn = order.takerAmount;
             temp[2] = order.takerAmount;
             userHistory[order.maker].push(temp);
             temp[0] = 1;
-            userHistory[order.taker].push(temp);
+            userHistory[msg.sender].push(temp);
         }
 
-        IERC20(order.takerToken).transferFrom(msg.sender, order.maker, order.takerAmount);
+        // IERC20(order.takerToken).transferFrom(msg.sender, order.maker, order.takerAmount);
         require(
-            IERC20(order.makerToken).transferFrom(order.maker, msg.sender, order.makerAmount),
+            IERC20(order.makerToken).transferFrom(order.maker, msg.sender, mkAmoutn),
             "Maker token transfer failed"
         );
         require(
-            IERC20(order.takerToken).transferFrom(msg.sender, order.maker, order.takerAmount),
+            IERC20(order.takerToken).transferFrom(msg.sender, order.maker, tkAmoutn),
             "Taker token transfer failed"
         );
 
-        userHistory[order.maker][0][0] += order.makerAmount;
-        return (order.makerAmount, order.takerAmount);
+        // userHistory[order.maker][0][0] += order.makerAmount;
+        return (mkAmoutn, tkAmoutn);
     }
 
     function recoverSigner(bytes32 digest, bytes memory sig) internal pure returns (address) {
