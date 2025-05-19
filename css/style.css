@@ -1,0 +1,35 @@
+
+body {
+  font-family: Arial, sans-serif;
+  background: #f4f4f4;
+  margin: 0;
+  padding: 20px;
+}
+.container {
+  max-width: 800px;
+  margin: auto;
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+}
+.section {
+  margin-top: 20px;
+}
+input {
+  margin: 5px;
+  padding: 8px;
+  width: 80%;
+}
+.orderbook-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+.orderbook-table th, .orderbook-table td {
+  border: 1px solid #ccc;
+  padding: 8px;
+  text-align: center;
+}
+.orderbook-table th {
+  background-color: #eee;
+}

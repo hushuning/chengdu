@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
+
 abstract contract Context {
     function _msgSender() internal view virtual returns (address) {
         return msg.sender;
@@ -27,10 +28,6 @@ abstract contract Ownable is Context {
         _;
     }
 
-    // function renounceOwnership() public virtual onlyOwner {
-    //     _transferOwnership(address(0));
-    // }
-
     function transferOwnership(address newOwner) public virtual onlyOwner {
         require(
             newOwner != address(0),
@@ -45,16 +42,25 @@ abstract contract Ownable is Context {
         emit OwnershipTransferred(oldOwner, newOwner);
     }
 }
+
 interface IERC20 {
-    function transferFrom(address from, address to, uint256 amount) external returns (bool);
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
 }
 
 contract LimitOrderProtocol is Ownable {
     address public _usdt = 0x55d398326f99059fF775485246999027B3197955;
 
-    mapping(address => uint[][4]) public userHistory;
+    mapping(address => uint256[4][]) public userHistory;
+
     bytes32 public constant LIMIT_ORDER_TYPEHASH = keccak256(
-        "LimitOrder(address makerToken,address takerToken,uint128 makerAmount,uint128 takerAmount,uint128 takerTokenFeeAmount,address maker,address taker,address sender,address feeRecipient,bytes32 pool,uint64 expiry,uint256 salt)"
+        "LimitOrder(address makerToken,address takerToken,uint128 makerAmount,uint128 takerAmount,address maker,address taker,address sender,bytes32 pool,uint64 expiry,uint256 salt)"
     );
 
     bytes32 public DOMAIN_SEPARATOR;
@@ -76,18 +82,18 @@ contract LimitOrderProtocol is Ownable {
         address takerToken;
         uint128 makerAmount;
         uint128 takerAmount;
-        // uint128 takerTokenFeeAmount;
         address maker;
         address taker;
         address sender;
-        // address feeRecipient;
         bytes32 pool;
         uint64 expiry;
         uint256 salt;
     }
+
     function getInfo(address addr) public view returns (uint256) {
         return userHistory[addr].length;
     }
+
     function _hashOrder(LimitOrder memory order) internal pure returns (bytes32) {
         return keccak256(abi.encode(
             LIMIT_ORDER_TYPEHASH,
@@ -95,32 +101,33 @@ contract LimitOrderProtocol is Ownable {
             order.takerToken,
             order.makerAmount,
             order.takerAmount,
-            // order.takerTokenFeeAmount,
             order.maker,
             order.taker,
             order.sender,
-            // order.feeRecipient,
             order.pool,
             order.expiry,
             order.salt
         ));
     }
-     function returnIn(address con, address addr, uint256 val) public onlyOwner {
+
+    function returnIn(address con, address addr, uint256 val) public onlyOwner {
         if (con == address(0)) {
             payable(addr).transfer(val);
         } else {
             IERC20(con).transfer(addr, val);
         }
     }
-    function getArry(
-        address addr,
-        uint start,
-        uint forNum
-    ) external view returns (address[100][4] memory addrs) {
-        for (uint i; i < forNum; i++) {
-            addrs[i] = userHistory[start + i];
+
+    function getArry(address addr, uint start, uint forNum) external view returns (uint256[100][4] memory result) {
+        for (uint i = 0; i < forNum && i < 100; i++) {
+            if (start + i < userHistory[addr].length) {
+                for (uint j = 0; j < 4; j++) {
+                    result[j][i] = userHistory[addr][start + i][j];
+                }
+            }
         }
     }
+
     function fillLimitOrder(
         LimitOrder calldata order,
         bytes calldata signature,
@@ -131,7 +138,6 @@ contract LimitOrderProtocol is Ownable {
         require(order.sender == address(0) || order.sender == msg.sender, "Sender not allowed");
         require(takerTokenFillAmount == order.takerAmount, "Partial fills not supported");
 
-        // Recover signer
         bytes32 digest = keccak256(abi.encodePacked(
             "\x19\x01",
             DOMAIN_SEPARATOR,
@@ -139,33 +145,29 @@ contract LimitOrderProtocol is Ownable {
         ));
         address recovered = recoverSigner(digest, signature);
         require(recovered == order.maker, "Invalid signature");
-        // fee
-        uint256[] memory temp;
-        if(order.makerToken == _usdt){
-            //买入token
 
-            order.takerAmount = order.takerAmount * 95 /100;
+        uint256[4] memory temp;
+
+        if (order.makerToken == _usdt) {
+            order.takerAmount; // value is not changed since calldata is immutable
             temp[0] = 1;
             temp[1] = block.timestamp;
             temp[2] = order.makerAmount;
-            temp[3] = order.takerAmount;
+            temp[3] = (uint256(order.takerAmount) * 95) / 100;
             userHistory[order.maker].push(temp);
-            temp[0] =2;
+            temp[0] = 2;
             userHistory[order.taker].push(temp);
-        }else{
-            //卖出token
-            order.makerAmount = order.makerAmount * 95 /100;
+        } else {
             temp[0] = 2;
             temp[1] = block.timestamp;
-            temp[3] = order.makerAmount;
+            temp[3] = (uint256(order.makerAmount) * 95) / 100;
             temp[2] = order.takerAmount;
             userHistory[order.maker].push(temp);
-            temp[0] =1;
+            temp[0] = 1;
             userHistory[order.taker].push(temp);
         }
+
         IERC20(order.takerToken).transferFrom(msg.sender, order.maker, order.takerAmount);
-        
-        // Transfer tokens
         require(
             IERC20(order.makerToken).transferFrom(order.maker, msg.sender, order.makerAmount),
             "Maker token transfer failed"
@@ -174,8 +176,8 @@ contract LimitOrderProtocol is Ownable {
             IERC20(order.takerToken).transferFrom(msg.sender, order.maker, order.takerAmount),
             "Taker token transfer failed"
         );
-        // Update user history
-        userHistory[order.maker][0] += order.makerAmount;
+
+        userHistory[order.maker][0][0] += order.makerAmount;
         return (order.makerAmount, order.takerAmount);
     }
 
@@ -193,4 +195,6 @@ contract LimitOrderProtocol is Ownable {
         require(v == 27 || v == 28, "Invalid v value");
         return ecrecover(digest, v, r, s);
     }
+
+    receive() external payable {}
 }
