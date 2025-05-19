@@ -29,7 +29,7 @@
   <p id="status"></p>
 
   <script>
-    const LIMIT_ORDER_PROTOCOL = "0xc89b32a18ecced83c8393fd0de7df2d02ab86717"; // 替换为你的合约地址
+    const LIMIT_ORDER_PROTOCOL = "0x62d1e5d2980861fff38c78d786e9c009fb478abe"; // 替换为你的合约地址
     const orders = JSON.parse(localStorage.getItem('limitOrders') || '[]');
     const orderList = document.getElementById('orderList');
     const statusEl = document.getElementById('status');
@@ -82,11 +82,11 @@
         takerToken,
         makerAmount: makingAmount.toString(),
         takerAmount: takingAmount.toString(),
-        takerTokenFeeAmount: "1",
+        // takerTokenFeeAmount: "1",
         maker: address,
         taker: "0x0000000000000000000000000000000000000000",
         sender: "0x0000000000000000000000000000000000000000",
-        feeRecipient: "0x99a190101E3FF57b258ae66243ED061Fc4AcbcE1",
+        // feeRecipient: "0x99a190101E3FF57b258ae66243ED061Fc4AcbcE1",
         pool: "0x0000000000000000000000000000000000000000000000000000000000000000",
         expiry,
         salt
@@ -106,11 +106,11 @@
           { name: 'takerToken', type: 'address' },
           { name: 'makerAmount', type: 'uint128' },
           { name: 'takerAmount', type: 'uint128' },
-          { name: 'takerTokenFeeAmount', type: 'uint128' },
+          // { name: 'takerTokenFeeAmount', type: 'uint128' },
           { name: 'maker', type: 'address' },
           { name: 'taker', type: 'address' },
           { name: 'sender', type: 'address' },
-          { name: 'feeRecipient', type: 'address' },
+          // { name: 'feeRecipient', type: 'address' },
           { name: 'pool', type: 'bytes32' },
           { name: 'expiry', type: 'uint64' },
           { name: 'salt', type: 'uint256' }
@@ -162,11 +162,11 @@
         order.takerToken,
         order.makerAmount,
         order.takerAmount,
-        order.takerTokenFeeAmount,
+        // order.takerTokenFeeAmount,
         order.maker,
         order.taker,
         order.sender,
-        order.feeRecipient,
+        // order.feeRecipient,
         order.pool,
         order.expiry,
         order.salt
