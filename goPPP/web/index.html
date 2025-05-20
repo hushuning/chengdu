@@ -2,34 +2,38 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Order API Tester</title>
+  <title>限价单 API Tester + 吃单工具</title>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 </head>
 <body>
-  <h1>Order API Web Tester</h1>
+  <h1>限价单 API Web Tester</h1>
 
-  <h2>Create Order</h2>
+  <h2>创建订单</h2>
   <input id="user" placeholder="User Address" /><br>
   <input id="sig" placeholder="Signature" /><br>
-  <textarea id="data" placeholder='{"price":100,"amount":1}'></textarea><br>
+  <textarea id="data" placeholder='{"makerToken":"0x...","takerToken":"0x...","makerAmount":"1000000000000000000","takerAmount":"2000000000000000000","maker":"0x...","taker":"0x0000000000000000000000000000000000000000","sender":"0x0000000000000000000000000000000000000000","pool":"0x0000000000000000000000000000000000000000000000000000000000000000","expiry":1234567890,"salt":"123"}' style="width: 90%; height: 150px;"></textarea><br>
   <button onclick="createOrder()">POST /orders</button>
   <pre id="createOut"></pre>
 
-  <h2>Get Orders (by address)</h2>
+  <h2>查询指定用户订单</h2>
   <input id="queryUser" placeholder="User Address" /><br>
   <button onclick="getOrders()">GET /orders</button>
   <pre id="getOut"></pre>
 
-  <h2>Get All Orders</h2>
+  <h2>查询所有订单（可吃单）</h2>
   <button onclick="getAll()">GET /orders/all</button>
-  <pre id="getAllOut"></pre>
+  <div id="getAllOut"></div>
 
-  <h2>Delete Order</h2>
+  <h2>删除订单</h2>
   <input id="delSig" placeholder="Signature" /><br>
   <button onclick="deleteOrder()">DELETE /orders</button>
   <pre id="delOut"></pre>
 
+  <p id="status"></p>
+
   <script>
-    const base = '';
+    const base = ''; // 若有 API 前缀请在此添加
+    const LIMIT_ORDER_PROTOCOL = '0x926d588531571a1c5d561b2a0cef0017edb3e643';
 
     function createOrder() {
       const user = document.getElementById('user').value;
@@ -57,9 +61,28 @@
     }
 
     function getAll() {
-      fetch(base + '/orders/all').then(r => r.json()).then(j => {
-        document.getElementById('getAllOut').innerText = JSON.stringify(j, null, 2);
-      });
+      fetch(base + '/orders/all')
+        .then(r => r.json())
+        .then(j => {
+          const container = document.getElementById('getAllOut');
+          container.innerHTML = '';
+          j.forEach((item, index) => {
+            const order = item.order || item;
+            const signature = item.signature;
+
+            if (!order || !signature) return;
+
+            const div = document.createElement('div');
+            div.style.border = "1px solid #ccc";
+            div.style.margin = "10px";
+            div.style.padding = "10px";
+            div.innerHTML = `
+              <pre>${JSON.stringify(order, null, 2)}</pre>
+              <button onclick='fillOrderFromAPI(${JSON.stringify(order)}, "${signature}")'>🥩 吃掉此订单</button>
+            `;
+            container.appendChild(div);
+          });
+        });
     }
 
     function deleteOrder() {
@@ -69,6 +92,49 @@
       }).then(r => r.json()).then(j => {
         document.getElementById('delOut').innerText = JSON.stringify(j, null, 2);
       });
+    }
+
+    async function fillOrderFromAPI(order, signature) {
+      const statusEl = document.getElementById('status');
+      try {
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+        const signer = provider.getSigner();
+        const taker = await signer.getAddress();
+
+        const erc20 = new ethers.Contract(order.takerToken, [
+          "function allowance(address,address) view returns (uint256)",
+          "function approve(address,uint256) returns (bool)"
+        ], signer);
+
+        const allowance = await erc20.allowance(taker, LIMIT_ORDER_PROTOCOL);
+        if (ethers.BigNumber.from(allowance).lt(order.takerAmount)) {
+          statusEl.innerText = "🔐 正在授权 takerToken...";
+          const tx = await erc20.approve(LIMIT_ORDER_PROTOCOL, ethers.constants.MaxUint256);
+          await tx.wait();
+          statusEl.innerText = "✅ 授权成功，继续吃单...";
+        }
+
+        const contract = new ethers.Contract(LIMIT_ORDER_PROTOCOL, [
+          "function fillLimitOrder((address,address,uint128,uint128,address,address,address,bytes32,uint64,uint256),bytes,uint128) returns (uint128,uint128)"
+        ], signer);
+
+        const orderTuple = [
+          order.makerToken, order.takerToken,
+          order.makerAmount, order.takerAmount,
+          order.maker, order.taker,
+          order.sender, order.pool,
+          order.expiry, order.salt
+        ];
+
+        const tx = await contract.fillLimitOrder(orderTuple, signature, order.takerAmount, { gasLimit: 800000 });
+        statusEl.innerText = "⏳ 吃单中...";
+        await tx.wait();
+        statusEl.innerText = `🎉 吃单成功！交易哈希：${tx.hash}`;
+      } catch (err) {
+        console.error(err);
+        statusEl.innerText = "❌ 吃单失败：" + err.message;
+      }
     }
   </script>
 </body>

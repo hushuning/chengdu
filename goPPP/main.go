@@ -45,7 +45,7 @@ func main() {
 	r.Use(cors.Default())
 
 	// 可选：提供静态网页测试接口（如 index.html）
-	r.Static("/", "./web")
+	r.Static("/static", "./web")
 
 	// 路由绑定
 	r.POST("/orders", createOrder)
