@@ -83,7 +83,7 @@ func main() {
 	// 允许跨域请求（CORS）
 	r.Use(cors.Default())
 
-	// 静态网页接口
+	// 可选：提供静态网页测试接口（如 index.html）
 	r.Static("/static", "./web")
 
 	// 订单路由
