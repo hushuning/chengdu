@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -28,6 +29,44 @@ type CreateOrderInput struct {
 
 var db *gorm.DB
 
+// 计时器相关
+var (
+	mu           sync.Mutex
+	deadlineTime time.Time
+)
+
+type TimeInput struct {
+	Seconds int64 `json:"seconds" binding:"required,gt=0"`
+}
+
+func setTime(c *gin.Context) {
+	var input TimeInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	mu.Lock()
+	deadlineTime = time.Now().Add(time.Duration(input.Seconds) * time.Second)
+	mu.Unlock()
+
+	c.JSON(http.StatusOK, gin.H{"message": "deadline set", "deadline": deadlineTime.Format(time.RFC3339)})
+}
+
+func getRemainingTime(c *gin.Context) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	now := time.Now()
+	if deadlineTime.IsZero() || now.After(deadlineTime) {
+		c.JSON(http.StatusOK, gin.H{"remaining_seconds": 0})
+		return
+	}
+
+	remaining := int64(deadlineTime.Sub(now).Seconds())
+	c.JSON(http.StatusOK, gin.H{"remaining_seconds": remaining})
+}
+
 func main() {
 	var err error
 	db, err = gorm.Open(sqlite.Open("orders.db"), &gorm.Config{})
@@ -44,14 +83,18 @@ func main() {
 	// 允许跨域请求（CORS）
 	r.Use(cors.Default())
 
-	// 可选：提供静态网页测试接口（如 index.html）
-	r.Static("/", "./web")
+	// 静态网页接口
+	r.Static("/static", "./web")
 
-	// 路由绑定
+	// 订单路由
 	r.POST("/orders", createOrder)
 	r.GET("/orders", getOrders)
-	r.GET("/orders/all", getAllOrders) // ✅ 新增：查询全部订单
+	r.GET("/orders/all", getAllOrders)
 	r.DELETE("/orders", deleteOrder)
+
+	// 新增倒计时相关路由
+	r.POST("/time", setTime)
+	r.GET("/time", getRemainingTime)
 
 	r.Run(":8080")
 }
