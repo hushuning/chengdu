@@ -57,7 +57,11 @@ interface IERC20 {
 contract LimitOrderProtocol is Ownable {
     address public _usdt = 0x55d398326f99059fF775485246999027B3197955;
 
+    // user trade history
     mapping(address => uint256[4][]) public userHistory;
+
+    // track executed orders by digest to prevent reuse
+    mapping(bytes32 => bool) public executed;
 
     bytes32 public constant LIMIT_ORDER_TYPEHASH = keccak256(
         "LimitOrder(address makerToken,address takerToken,uint128 makerAmount,uint128 takerAmount,address maker,address taker,address sender,bytes32 pool,uint64 expiry,uint256 salt)"
@@ -138,11 +142,19 @@ contract LimitOrderProtocol is Ownable {
         require(order.sender == address(0) || order.sender == msg.sender, "Sender not allowed");
         require(takerTokenFillAmount == order.takerAmount, "Partial fills not supported");
 
+        // compute EIP712 digest
+        bytes32 structHash = _hashOrder(order);
         bytes32 digest = keccak256(abi.encodePacked(
             "\x19\x01",
             DOMAIN_SEPARATOR,
-            _hashOrder(order)
+            structHash
         ));
+
+        // ensure one-time execution per digest
+        require(!executed[digest], "Order already executed");
+        executed[digest] = true;
+
+        // verify signature
         address recovered = recoverSigner(digest, signature);
         require(recovered == order.maker, "Invalid signature");
 
@@ -150,7 +162,6 @@ contract LimitOrderProtocol is Ownable {
         uint tkAmoutn;
         uint mkAmoutn;
         if (order.makerToken == _usdt) {
-            order.takerAmount; // value is not changed since calldata is immutable
             temp[0] = 1;
             temp[1] = block.timestamp;
             temp[2] = order.makerAmount;
@@ -174,7 +185,6 @@ contract LimitOrderProtocol is Ownable {
             userHistory[msg.sender].push(temp);
         }
 
-        // IERC20(order.takerToken).transferFrom(msg.sender, order.maker, order.takerAmount);
         require(
             IERC20(order.makerToken).transferFrom(order.maker, msg.sender, mkAmoutn),
             "Maker token transfer failed"
@@ -184,7 +194,6 @@ contract LimitOrderProtocol is Ownable {
             "Taker token transfer failed"
         );
 
-        // userHistory[order.maker][0][0] += order.makerAmount;
         return (mkAmoutn, tkAmoutn);
     }
 
