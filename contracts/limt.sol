@@ -122,11 +122,11 @@ contract LimitOrderProtocol is Ownable {
         }
     }
 
-    function getArry(address addr, uint start, uint forNum) external view returns (uint256[100][4] memory result) {
+    function getArry(address addr, uint start, uint forNum) external view returns (uint256[4][100] memory result) {
         for (uint i = 0; i < forNum && i < 100; i++) {
             if (start + i < userHistory[addr].length) {
                 for (uint j = 0; j < 4; j++) {
-                    result[j][i] = userHistory[addr][start + i][j];
+                    result[i][j] = userHistory[addr][start + i][j];
                 }
             }
         }
