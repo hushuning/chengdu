@@ -92,15 +92,19 @@ func main() {
 	r.Static("/static", "./web")
 
 	// 订单路由
-	r.POST("/orders", createOrder)
-	r.GET("/orders", getOrders)
-	r.GET("/orders/all", getAllOrders)
-	// 删除订单，使用路径参数 :id
-	r.DELETE("/orders/:id", deleteOrder)
+	api := r.Group("/api")
+	{
+		api.POST("/orders", createOrder)
+		api.GET("/orders", getOrders)
+		api.GET("/orders/all", getAllOrders)
+		// 删除订单，使用路径参数 :id
+		api.DELETE("/orders/:id", deleteOrder)
 
-	// 倒计时路由
-	r.POST("/time", setTime)
-	r.GET("/time", getRemainingTime)
+		// 倒计时路由
+		api.POST("/time", setTime)
+		api.GET("/time", getRemainingTime)
+
+	}
 
 	r.Run(":8080")
 }
