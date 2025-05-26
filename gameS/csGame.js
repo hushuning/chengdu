@@ -12,7 +12,7 @@ async function main() {
 
   // 2. 部署 BombGame 合约
   const BombGame = await hre.ethers.getContractFactory("BombGame");
-  const bombGame = await BombGame.deploy();
+  const bombGame = await BombGame.deploy(gameToken.target);
   await bombGame.waitForDeployment();
   console.log("✅ BombGame deployed at:", await bombGame.getAddress());
 
@@ -29,7 +29,12 @@ async function main() {
   await gameToken.connect(user1).approve(bombGame.getAddress(), hre.ethers.parseUnits("1000", 18));
   await gameToken.connect(user2).approve(bombGame.getAddress(), hre.ethers.parseUnits("1000", 18));
   console.log("✅ user1 and user2 approved BombGame to spend tokens");
-
+// 9. 查询用户余额
+  const user1Balanc = await gameToken.balanceOf(user1.address);
+  console.log("👤 user1 balance游戏前:", hre.ethers.formatUnits(user1Balanc, 18), "GT");
+  const user2Balanc = await gameToken.balanceOf(user2.address);
+  console.log("👤 user2 balance:游戏前", hre.ethers.formatUnits(user2Balanc, 18), "GT");
+  
   // 6. user1 加入房间1，投入100 GT
   await bombGame.connect(user1).joinGame(1, hre.ethers.parseUnits("100", 18));
   console.log("✅ user1 joined room 1 with 100 GT");
@@ -50,13 +55,16 @@ async function main() {
   // 9. 查询用户余额
   const user1Balance = await gameToken.balanceOf(user1.address);
   console.log("👤 user1 balance:", hre.ethers.formatUnits(user1Balance, 18), "GT");
+  const user2Balance = await gameToken.balanceOf(user2.address);
+  console.log("👤 user2 balance:", hre.ethers.formatUnits(user2Balance, 18), "GT");
   // 9. 管理员调用 endGame，传入随机数 12345
   const tx = await bombGame.endGame(12345);
   await tx.wait();
   console.log("✅ endGame called");
   const user1Balance1 = await gameToken.balanceOf(user1.address);
   console.log("👤 user1 balance:", hre.ethers.formatUnits(user1Balance1, 18), "GT");
- 
+  const user2Balance1 = await gameToken.balanceOf(user2.address);
+  console.log("👤 user2 balance:", hre.ethers.formatUnits(user2Balance1, 18), "GT");
   // 10. 查询游戏结果（爆炸房间）
   const roundId = await bombGame.roundId();
   console.log(`🔥 Round ${roundId} ended`);
