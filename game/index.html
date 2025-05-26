@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Room Explosion Game</title>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
+  <style>
+    body { margin: 0; padding: 0; }
+    #game-container { width: 100vw; height: 100vh; overflow: hidden; }
+    /* 强制画布上下拉伸充满视口 */
+    #game-container canvas { width: 100vw !important; height: 100vh !important; }
+  </style>
+</head>
+<body>
+  <div id="game-container"></div>
+  <script>
+    window.onload = function() {
+      const DEV_MODE = true;    // ← 开发时设为 true，生产环境改为 false
+      const ROOM_SCALE = 0.4;   // 缩放比例，可根据需要调整
+      const GRID_COLS = 5;
+      const GRID_ROWS = 2;
+
+      const config = {
+        type: Phaser.AUTO,
+        parent: 'game-container',
+        width: 800,
+        height: 600,
+        scale: {
+          mode: Phaser.Scale.FIT,
+          autoCenter: Phaser.Scale.CENTER_BOTH,
+        },
+        scene: { preload, create, update }
+      };
+
+      const game = new Phaser.Game(config);
+      let rooms = [];
+      let betTexts = [];
+      let bets = {};
+
+      function preload() {
+        this.load.image('background', 'assets/background.png');
+        const roomFiles = [
+          'room_asset_0.png', 'room_asset_62.png', 'room_asset_637.png',
+          'room_asset_970.png', 'room_asset_1305.png', 'room_asset_1508.png',
+          // TODO: 补全剩余 4 个文件名
+        ];
+        roomFiles.forEach((fn, idx) => {
+          this.load.image('room' + idx, 'assets/room_assets/' + fn);
+        });
+        this.load.spritesheet('explosion', 'assets/explosion_spritesheet.png', { frameWidth: 64, frameHeight: 64 });
+      }
+
+      function create() {
+        // 背景铺满整个父容器
+        this.add.image(0, 0, 'background')
+          .setOrigin(0)
+          .setDisplaySize(config.width, config.height);
+
+        // 计算默认位置
+        const marginX = config.width * 0.1;
+        const marginY = config.height * 0.3;
+        const defaultPositions = calcPositions(config.width, config.height, GRID_COLS, GRID_ROWS, marginX, marginY);
+
+        // 如果本地有保存的位置，就用它
+        const saved = DEV_MODE ? JSON.parse(localStorage.getItem('roomPositions') || 'null') : null;
+        const positions = saved || defaultPositions;
+
+        // 创建并（如果是开发模式）允许拖拽
+        positions.forEach((pos, idx) => {
+          const sprite = this.add.image(pos.x, pos.y, 'room' + idx)
+            .setScale(ROOM_SCALE)
+            .setInteractive(DEV_MODE ? { draggable: true } : false);
+
+          sprite.setData('idx', idx);
+          sprite.on('pointerdown', () => onRoomClick(idx));
+          rooms.push(sprite);
+
+          const text = this.add.text(pos.x, pos.y - 40 * ROOM_SCALE, bets[idx] ? `$${bets[idx]}` : '', {
+            font: `${18 * ROOM_SCALE}px Arial`,
+            fill: '#ffffff', stroke: '#000000', strokeThickness: 3
+          }).setOrigin(0.5);
+          betTexts.push(text);
+        });
+
+        // 如果在开发模式下，监听拖拽事件并在结束时保存位置
+        if (DEV_MODE) {
+          this.input.on('dragstart', (pointer, gameObject) => {
+            gameObject.setTint(0xaaaaaa);
+          });
+          this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
+            const i = gameObject.getData('idx');
+            gameObject.x = dragX;
+            gameObject.y = dragY;
+            betTexts[i].setPosition(dragX, dragY - 40 * ROOM_SCALE);
+          });
+          this.input.on('dragend', (pointer, gameObject) => {
+            gameObject.clearTint();
+            // 保存所有房间当前的位置到 localStorage
+            const arr = rooms.map(s => ({ x: s.x, y: s.y }));
+            localStorage.setItem('roomPositions', JSON.stringify(arr));
+          });
+        }
+
+        // 爆炸动画
+        this.anims.create({
+          key: 'explode',
+          frames: this.anims.generateFrameNumbers('explosion', { start: 0, end: 9 }),
+          frameRate: 15,
+          hideOnComplete: true
+        });
+
+        // 开始按钮
+        this.add.text(20, 20, '开始一轮', { font: '20px Arial', fill: '#00ff00' })
+          .setInteractive()
+          .on('pointerdown', () => simulateRound.call(this));
+      }
+
+      function update() {}
+
+      function onRoomClick(idx) {
+        const amount = prompt(`为房间 ${idx + 1} 输入下注金额：`);
+        if (amount) {
+          bets[idx] = parseFloat(amount);
+          betTexts[idx].setText(`$${amount}`);
+        }
+      }
+
+      function simulateRound() {
+        if (rooms.length < 2) return;
+        const indices = Phaser.Utils.Array.NumberArray(0, rooms.length - 1);
+        Phaser.Utils.Array.Shuffle(indices);
+        indices.slice(0, 2).forEach(i => {
+          const { x, y } = rooms[i];
+          this.add.sprite(x, y, 'explosion')
+            .setScale(ROOM_SCALE * 2)
+            .play('explode');
+        });
+      }
+
+      function calcPositions(w, h, cols, rows, marginX, marginY) {
+        const arr = [];
+        const stepX = (w - marginX * 2) / (cols - 1);
+        const stepY = (h - marginY * 2) / (rows - 1);
+        for (let j = 0; j < rows; j++) {
+          for (let i = 0; i < cols; i++) {
+            arr.push({ x: marginX + stepX * i, y: marginY + stepY * j });
+          }
+        }
+        return arr;
+      }
+    };
+  </script>
+</body>
+</html>
