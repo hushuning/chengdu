@@ -213,7 +213,7 @@ contract BombGame is Admin {
                 continue;
             }
             uint256 share = (rewardPool * p.amount) / (totalIn - bombIn);
-            uint256 payout = p.amount + share;
+            uint256 payout = (p.amount*995/1000) + share;
             require(token.transfer(user, payout), "Payout failed");
         }
 
@@ -239,7 +239,7 @@ contract BombGame is Admin {
         return roomMoney[roundId];
     }
 
-    function getGameResult(uint256 rid) external view returns (uint8[2] memory) {
+    function getGame(uint256 rid) external view returns (uint8[2] memory) {
         return gameResult[rid];
     }
 
