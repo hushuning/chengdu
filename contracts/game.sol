@@ -213,10 +213,10 @@ contract BombGame is Admin {
                 continue;
             }
             uint256 share = (rewardPool * p.amount) / (totalIn - bombIn);
-            uint256 payout = (p.amount*995/1000) + share;
+            uint256 payout = p.amount + share;
             require(token.transfer(user, payout), "Payout failed");
         }
-
+        
         // 抽水分配
         uint256 toTeam    = (totalFee * 40) / 100;
         uint256 toDayTop  = (totalFee * 10) / 100;
@@ -239,7 +239,7 @@ contract BombGame is Admin {
         return roomMoney[roundId];
     }
 
-    function getGame(uint256 rid) external view returns (uint8[2] memory) {
+    function getGameResult(uint256 rid) external view returns (uint8[2] memory) {
         return gameResult[rid];
     }
 

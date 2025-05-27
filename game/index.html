@@ -9,14 +9,24 @@
     body { margin: 0; padding: 0; }
     #game-container { width: 100vw; height: 100vh; overflow: hidden; }
     #game-container canvas { width: 100vw !important; height: 100vh !important; }
+    #save-btn {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      z-index: 1000;
+      padding: 8px 12px;
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
   <div id="game-container"></div>
+  <button id="save-btn">打印坐标到控制台</button>
+
   <script>
     window.onload = function () {
-      const DEV_MODE = true;
-      const ROOM_SCALE = 0.4;
+      const DEV_MODE = false; // 设置为 true 以启用拖拽功能
+      const ROOM_SCALE = 0.3;
       const GRID_COLS = 5;
       const GRID_ROWS = 2;
 
@@ -42,7 +52,7 @@
         const roomFiles = [
           'room_asset_0.png', 'room_asset_62.png', 'room_asset_637.png',
           'room_asset_970.png', 'room_asset_1305.png', 'room_asset_1508.png',
-          'room_asset_7.png', 'room_asset_8.png', 'room_asset_9.png', 'room_asset_10.png'
+          '7.png', '8.png', '9.png', '10.png'
         ];
         roomFiles.forEach((fn, idx) => {
           this.load.image('room' + idx, 'assets/room_assets/' + fn);
@@ -51,18 +61,71 @@
       }
 
       function create() {
+        // 背景
         this.add.image(0, 0, 'background')
           .setOrigin(0)
           .setDisplaySize(config.width, config.height);
 
+        // 初始位置
         const marginX = config.width * 0.1;
         const marginY = config.height * 0.3;
         const defaultPositions = calcPositions(config.width, config.height, GRID_COLS, GRID_ROWS, marginX, marginY);
 
-        const saved = DEV_MODE ? JSON.parse(localStorage.getItem('roomPositions') || 'null') : null;
+        // 【手动写死坐标的位置】——每次拖拽后复制控制台输出的 const saved = [...] 并粘到这里：
+        // const saved = null;
+     const saved = [
+  {
+    "x": 114.8479873063484,
+    "y": 163.9601987127388
+  },
+  {
+    "x": 264.00639125548435,
+    "y": 167.6616913174914
+  },
+  {
+    "x": 417.8111935121337,
+    "y": 165.19402958098962
+  },
+  {
+    "x": 566.466951616793,
+    "y": 151.05616741248457
+  },
+  {
+    "x": 416.01335177458344,
+    "y": 322.0106590514343
+  },
+  {
+    "x": 95.25670989903574,
+    "y": 296.0600023308948
+  },
+  {
+    "x": 688.001546731329,
+    "y": 461.3941824701993
+  },
+  {
+    "x": 365.12300125041764,
+    "y": 468.1594869397522
+  },
+  {
+    "x": 693.9711511999615,
+    "y": 173.2338263498273
+  },
+  {
+    "x": 531.0694588239312,
+    "y": 469.9990634902939
+  }
+];
+
+        // 例如：
+        // const saved = [
+        //   { "x": 120, "y": 240 },
+        //   { "x": 280, "y": 240 },
+        //   ...
+        // ];
+
         const positions = saved || defaultPositions;
 
-        this.input.setTopOnly(true); // 只响应顶部对象
+        this.input.setTopOnly(true);
 
         positions.forEach((pos, idx) => {
           const sprite = this.add.image(pos.x, pos.y, 'room' + idx)
@@ -70,7 +133,6 @@
             .setInteractive({ draggable: DEV_MODE });
 
           sprite.setData('idx', idx);
-
           let wasDragged = false;
 
           if (DEV_MODE) {
@@ -78,26 +140,26 @@
               wasDragged = true;
               sprite.setTint(0xaaaaaa);
             });
-
             sprite.on('drag', (pointer, dragX, dragY) => {
               sprite.x = dragX;
               sprite.y = dragY;
-              const i = sprite.getData('idx');
-              betTexts[i].setPosition(dragX, dragY - 40 * ROOM_SCALE);
+              betTexts[idx].setPosition(dragX, dragY - 40 * ROOM_SCALE);
             });
-
             sprite.on('dragend', () => {
               sprite.clearTint();
-              const arr = rooms.map(s => ({ x: s.x, y: s.y }));
-              localStorage.setItem('roomPositions', JSON.stringify(arr));
-              setTimeout(() => { wasDragged = false; }, 100); // 稍后允许点击
+              // 拖拽结束后打印可粘回 HTML 的坐标代码
+              const coords = rooms.map(r => ({ x: r.x, y: r.y }));
+              console.log(
+                'const saved = ' +
+                JSON.stringify(coords, null, 2) +
+                ';'
+              );
+              setTimeout(() => { wasDragged = false; }, 100);
             });
           }
 
           sprite.on('pointerup', () => {
-            if (!wasDragged) {
-              onRoomClick(idx);
-            }
+            if (!wasDragged) onRoomClick(idx);
           });
 
           rooms.push(sprite);
@@ -119,6 +181,16 @@
         this.add.text(20, 20, '开始一轮', { font: '20px Arial', fill: '#00ff00' })
           .setInteractive()
           .on('pointerdown', () => simulateRound.call(this));
+
+        // “打印坐标”按钮也触发同样的打印
+        document.getElementById('save-btn').addEventListener('click', () => {
+          const coords = rooms.map(r => ({ x: r.x, y: r.y }));
+          console.log(
+            'const saved = ' +
+            JSON.stringify(coords, null, 2) +
+            ';'
+          );
+        });
       }
 
       function update() {}
