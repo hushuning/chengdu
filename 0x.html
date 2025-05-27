@@ -42,18 +42,19 @@
   <p id="status"></p>
 
   <script>
-    const LIMIT_ORDER_PROTOCOL = "0x926d588531571a1c5d561b2a0cef0017edb3e643";
+    const LIMIT_ORDER_PROTOCOL = "0xdbd4abf60ab897f0929d0081653e109095dc9ee7";
     const orders = JSON.parse(localStorage.getItem('limitOrders') || '[]');
     const orderList = document.getElementById('orderList');
     const statusEl = document.getElementById('status');
     const historyResult = document.getElementById('historyResult');
 
+    // 更新后的 renderOrders，完整显示 o（包括 order 和 signature）
     const renderOrders = () => {
       orderList.innerHTML = "";
       orders.forEach((o, i) => {
         const div = document.createElement('div');
         div.innerHTML = `
-          <pre>${JSON.stringify(o.order, null, 2)}</pre>
+          <pre>${JSON.stringify(o, null, 2)}</pre>
           <button onclick="fillOrder(${i})">🥩 吃掉这单</button>
           <hr />
         `;
@@ -144,7 +145,6 @@
 
       try {
         const result = await contract.getArry(addr, start, count);
-        // 仅显示前 count 条记录
         const sliced = result.map(arr => arr.slice(0, count));
         historyResult.innerHTML = `<pre>${JSON.stringify(sliced, null, 2)}</pre>`;
       } catch (err) {

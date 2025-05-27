@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// Order 模型定义
 type Order struct {
 	ID          uint      `gorm:"primaryKey" json:"id"`
 	UserAddress string    `json:"user_address"`
@@ -21,6 +23,7 @@ type Order struct {
 	CreatedAt   time.Time `json:"created_at"`
 }
 
+// CreateOrderInput 用于创建订单的请求体
 type CreateOrderInput struct {
 	UserAddress string          `json:"user_address" binding:"required"`
 	OrderData   json.RawMessage `json:"order_data" binding:"required"`
@@ -29,7 +32,7 @@ type CreateOrderInput struct {
 
 var db *gorm.DB
 
-// 计时器相关
+// 计时器相关变量
 var (
 	mu           sync.Mutex
 	deadlineTime time.Time
@@ -39,6 +42,7 @@ type TimeInput struct {
 	Seconds int64 `json:"seconds" binding:"required,gt=0"`
 }
 
+// 设置倒计时
 func setTime(c *gin.Context) {
 	var input TimeInput
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -53,6 +57,7 @@ func setTime(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "deadline set", "deadline": deadlineTime.Format(time.RFC3339)})
 }
 
+// 获取剩余时间
 func getRemainingTime(c *gin.Context) {
 	mu.Lock()
 	defer mu.Unlock()
@@ -83,22 +88,28 @@ func main() {
 	// 允许跨域请求（CORS）
 	r.Use(cors.Default())
 
-	// 可选：提供静态网页测试接口（如 index.html）
+	// 静态文件（可选）
 	r.Static("/static", "./web")
 
 	// 订单路由
-	r.POST("/orders", createOrder)
-	r.GET("/orders", getOrders)
-	r.GET("/orders/all", getAllOrders)
-	r.DELETE("/orders", deleteOrder)
+	api := r.Group("/api")
+	{
+		api.POST("/orders", createOrder)
+		api.GET("/orders", getOrders)
+		api.GET("/orders/all", getAllOrders)
+		// 删除订单，使用路径参数 :id
+		api.DELETE("/orders/:id", deleteOrder)
 
-	// 新增倒计时相关路由
-	r.POST("/time", setTime)
-	r.GET("/time", getRemainingTime)
+		// 倒计时路由
+		api.POST("/time", setTime)
+		api.GET("/time", getRemainingTime)
+
+	}
 
 	r.Run(":8080")
 }
 
+// 创建订单处理
 func createOrder(c *gin.Context) {
 	var input CreateOrderInput
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -120,6 +131,7 @@ func createOrder(c *gin.Context) {
 	c.JSON(http.StatusCreated, order)
 }
 
+// 获取指定用户的订单
 func getOrders(c *gin.Context) {
 	userAddress := c.Query("user_address")
 	if userAddress == "" {
@@ -136,6 +148,7 @@ func getOrders(c *gin.Context) {
 	c.JSON(http.StatusOK, orders)
 }
 
+// 获取所有订单
 func getAllOrders(c *gin.Context) {
 	var orders []Order
 	if err := db.Find(&orders).Error; err != nil {
@@ -145,17 +158,24 @@ func getAllOrders(c *gin.Context) {
 	c.JSON(http.StatusOK, orders)
 }
 
+// 删除订单处理，使用路径参数 :id
 func deleteOrder(c *gin.Context) {
-	signature := c.Query("signature")
-	if signature == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "signature query parameter required"})
+	idStr := c.Param("id")
+	if idStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id path parameter required"})
 		return
 	}
 
-	if err := db.Where("signature = ?", signature).Delete(&Order{}).Error; err != nil {
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	if err := db.Delete(&Order{}, id).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"deleted_signature": signature})
+	c.JSON(http.StatusOK, gin.H{"message": "order deleted", "id": id})
 }

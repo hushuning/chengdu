@@ -9,13 +9,13 @@ async function main() {
   const gameToken = await Token.deploy("GameToken", "GT", hre.ethers.parseUnits("1000000", 18));
   await gameToken.waitForDeployment();
   console.log("✅ GameToken deployed at:", await gameToken.getAddress());
-
+  const  gameT = await gameToken.getAddress()
   // 2. 部署 BombGame 合约
   const BombGame = await hre.ethers.getContractFactory("BombGame");
-  const bombGame = await BombGame.deploy();
+  const bombGame = await BombGame.deploy(gameT);
   await bombGame.waitForDeployment();
   console.log("✅ BombGame deployed at:", await bombGame.getAddress());
-
+  const gameC = await bombGame.getAddress()
   // 3. 设置游戏代币地址
   await bombGame.setGameToken(await gameToken.getAddress());
   console.log("✅ BombGame token set to GameToken");
@@ -29,7 +29,12 @@ async function main() {
   await gameToken.connect(user1).approve(bombGame.getAddress(), hre.ethers.parseUnits("1000", 18));
   await gameToken.connect(user2).approve(bombGame.getAddress(), hre.ethers.parseUnits("1000", 18));
   console.log("✅ user1 and user2 approved BombGame to spend tokens");
-
+// 9. 查询用户余额
+  const user1Balanc = await gameToken.balanceOf(user1.address);
+  console.log("👤 user1 balance游戏前:", hre.ethers.formatUnits(user1Balanc, 18), "GT");
+  const user2Balanc = await gameToken.balanceOf(user2.address);
+  console.log("👤 user2 balance:游戏前", hre.ethers.formatUnits(user2Balanc, 18), "GT");
+  
   // 6. user1 加入房间1，投入100 GT
   await bombGame.connect(user1).joinGame(1, hre.ethers.parseUnits("100", 18));
   console.log("✅ user1 joined room 1 with 100 GT");
@@ -53,6 +58,9 @@ async function main() {
   const user2Balance = await gameToken.balanceOf(user2.address);
   console.log("👤 user2 balance:", hre.ethers.formatUnits(user2Balance, 18), "GT");
   // 9. 管理员调用 endGame，传入随机数 12345
+  const gameCBalance = await gameToken.balanceOf(gameC);
+  console.log("👤 gameCBalance balance:", hre.ethers.formatUnits(gameCBalance, 18), "GT");
+ 
   const tx = await bombGame.endGame(12345);
   await tx.wait();
   console.log("✅ endGame called");
@@ -76,28 +84,27 @@ async function main() {
   });
   // 12. 查询整体游戏数据
   // 额外调用 getGameStatistics，打印更全面数据
-const gameStats = await bombGame.getGameStatistics();
+  const [currentRound, allPlayersInRound, top10Daily, top10Weekly] = await bombGame.getGameStatistics();
 
-console.log("==== Game Statistics ====");
-console.log("Current Round:", gameStats.currentRound.toString());
-
-console.log("Players in Current Round:");
-gameStats.allPlayersInRound.forEach((ps, idx) => {
-  console.log(`#${idx + 1} Player: ${ps.player} Amount: ${hre.ethers.formatUnits(ps.amount, 18)}`);
-});
-
-console.log("Top 10 Daily Ranking:");
-gameStats.top10Daily.forEach((entry, idx) => {
-  console.log(`#${idx + 1} Player: ${entry.player} Amount: ${hre.ethers.formatUnits(entry.amount, 18)}`);
-});
-
-console.log("Top 10 Weekly Ranking:");
-gameStats.top10Weekly.forEach((entry, idx) => {
-  console.log(`#${idx + 1} Player: ${entry.player} Amount: ${hre.ethers.formatUnits(entry.amount, 18)}`);
-});
-
+  console.log("==== Game Statistics ====");
+  console.log("Current Round:", currentRound.toString());
+  
+  console.log("Players in Current Round:");
+  allPlayersInRound.forEach((ps, idx) => {
+    console.log(`#${idx + 1} Player: ${ps.player} Amount: ${hre.ethers.formatUnits(ps.amount, 18)}`);
+  });
+  
+  console.log("Top 10 Daily Ranking:");
+  top10Daily.forEach((entry, idx) => {
+    console.log(`#${idx + 1} Player: ${entry.player} Amount: ${hre.ethers.formatUnits(entry.amount, 18)}`);
+  });
+  
+  console.log("Top 10 Weekly Ranking:");
+  top10Weekly.forEach((entry, idx) => {
+    console.log(`#${idx + 1} Player: ${entry.player} Amount: ${hre.ethers.formatUnits(entry.amount, 18)}`);
+  });
+  
 }
-
 main().catch((error) => {
   console.error("❌ 脚本执行失败:", error);
   process.exit(1);

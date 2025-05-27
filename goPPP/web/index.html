@@ -9,123 +9,106 @@
   <h1>限价单 API Web Tester</h1>
 
   <h2>创建订单</h2>
-  <input id="user" placeholder="User Address" /><br>
-  <input id="sig" placeholder="Signature" /><br>
-  <textarea id="data" placeholder='{"makerToken":"0x...","takerToken":"0x...","makerAmount":"1000000000000000000","takerAmount":"2000000000000000000","maker":"0x...","taker":"0x0000000000000000000000000000000000000000","sender":"0x0000000000000000000000000000000000000000","pool":"0x0000000000000000000000000000000000000000000000000000000000000000","expiry":1234567890,"salt":"123"}' style="width: 90%; height: 150px;"></textarea><br>
+  <input id="user" placeholder="User Address" /><br />
+  <input id="sig" placeholder="Signature" /><br />
+  <textarea id="data" placeholder='{"makerToken":"0x...","takerToken":"0x...","makerAmount":"1000000000000000000","takerAmount":"2000000000000000000","maker":"0x...","taker":"0x0000000000000000000000000000000000000000","sender":"0x0000000000000000000000000000000000000000","pool":"0x0000000000000000000000000000000000000000000000000000000000000000","expiry":1234567890,"salt":"123"}' style="width:90%;height:150px;"></textarea><br />
   <button onclick="createOrder()">POST /orders</button>
   <pre id="createOut"></pre>
 
   <h2>查询指定用户订单</h2>
-  <input id="queryUser" placeholder="User Address" /><br>
-  <button onclick="getOrders()">GET /orders</button>
+  <input id="queryUser" placeholder="User Address" /><br />
+  <button onclick="getOrders()">GET /orders?user_address=...</button>
   <pre id="getOut"></pre>
 
   <h2>查询所有订单（可吃单）</h2>
-  <button onclick="getAll()">GET /orders/all</button>
+  <button id="getAllBtn">GET /orders/all</button>
   <div id="getAllOut"></div>
 
-  <h2>删除订单</h2>
-  <input id="delSig" placeholder="Signature" /><br>
-  <button onclick="deleteOrder()">DELETE /orders</button>
+  <h2>删除订单（按 ID）</h2>
+  <input id="delID" type="number" placeholder="Order ID" style="width:80px;" /><br />
+  <button onclick="deleteOrder()">DELETE /orders/:id</button>
   <pre id="delOut"></pre>
 
   <p id="status"></p>
 
   <script>
-    const base = ''; // 若有 API 前缀请在此添加
-    const LIMIT_ORDER_PROTOCOL = '0x926d588531571a1c5d561b2a0cef0017edb3e643';
+    const base = ''; // API 前缀，如有请设置
+    const LIMIT_ORDER_PROTOCOL = '0xdbd4abf60ab897f0929d0081653e109095dc9ee7';
 
-    function createOrder() {
+    document.getElementById('getAllBtn').addEventListener('click', getAll);
+
+    async function createOrder() {
       const user = document.getElementById('user').value;
       const sig = document.getElementById('sig').value;
-      const data = document.getElementById('data').value;
-      fetch(base + '/orders', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          user_address: user,
-          signature: sig,
-          order_data: JSON.parse(data)
-        })
-      }).then(r => r.json()).then(j => {
-        document.getElementById('createOut').innerText = JSON.stringify(j, null, 2);
-      });
+      const data = JSON.parse(document.getElementById('data').value);
+      try {
+        const res = await fetch(`${base}/orders`, {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({user_address:user,signature:sig,order_data:data})
+        });
+        const json = await res.json();
+        document.getElementById('createOut').innerText = JSON.stringify(json, null, 2);
+      } catch (err) {
+        document.getElementById('createOut').innerText = 'Error: '+err;
+      }
     }
 
-    function getOrders() {
+    async function getOrders() {
       const user = document.getElementById('queryUser').value;
-      fetch(base + '/orders?user_address=' + encodeURIComponent(user))
-        .then(r => r.json()).then(j => {
-          document.getElementById('getOut').innerText = JSON.stringify(j, null, 2);
+      try {
+        const res = await fetch(`${base}/orders?user_address=${encodeURIComponent(user)}`);
+        const json = await res.json();
+        document.getElementById('getOut').innerText = JSON.stringify(json, null, 2);
+      } catch (err) {
+        document.getElementById('getOut').innerText = 'Error: '+err;
+      }
+    }
+
+    async function getAll() {
+      const container = document.getElementById('getAllOut');
+      container.innerHTML = '';
+      try {
+        const res = await fetch(`${base}/orders/all`);
+        const list = await res.json();
+        list.forEach(item => {
+          let order = item.order_data? JSON.parse(item.order_data): item.order;
+          let sig = item.signature;
+          const div = document.createElement('div');
+          div.style.border='1px solid #ccc'; div.style.margin='10px'; div.style.padding='10px';
+          div.innerHTML = `<pre>${JSON.stringify(order,null,2)}</pre><button onclick="fillOrderFromAPI(${JSON.stringify(JSON.stringify(order))},'${sig}')">🥩 吃单</button>`;
+          container.appendChild(div);
         });
+      } catch (err) {
+        document.getElementById('status').innerText = 'Error: '+err;
+      }
     }
 
-    function getAll() {
-      fetch(base + '/orders/all')
-        .then(r => r.json())
-        .then(j => {
-          const container = document.getElementById('getAllOut');
-          container.innerHTML = '';
-          j.forEach((item, index) => {
-            const order = item.order || item;
-            const signature = item.signature;
-
-            if (!order || !signature) return;
-
-            const div = document.createElement('div');
-            div.style.border = "1px solid #ccc";
-            div.style.margin = "10px";
-            div.style.padding = "10px";
-            div.innerHTML = `
-              <pre>${JSON.stringify(order, null, 2)}</pre>
-              <button onclick='fillOrderFromAPI(${JSON.stringify(order)}, "${signature}")'>🥩 吃掉此订单</button>
-            `;
-            container.appendChild(div);
-          });
-        });
+    async function deleteOrder() {
+      const id = document.getElementById('delID').value;
+      try {
+        const res = await fetch(`${base}/orders/${id}`, {method:'DELETE'});
+        const json = await res.json();
+        document.getElementById('delOut').innerText = JSON.stringify(json, null, 2);
+      } catch (err) {
+        document.getElementById('delOut').innerText = 'Error: '+err;
+      }
     }
 
-    function deleteOrder() {
-      const sig = document.getElementById('delSig').value;
-      fetch(base + '/orders?signature=' + encodeURIComponent(sig), {
-        method: 'DELETE'
-      }).then(r => r.json()).then(j => {
-        document.getElementById('delOut').innerText = JSON.stringify(j, null, 2);
-      });
-    }
-
-    async function fillOrderFromAPI(order, signature) {
+    async function fillOrderFromAPI(orderString, signature) {
+      const order = JSON.parse(orderString);
       const statusEl = document.getElementById('status');
       try {
         const provider = new ethers.providers.Web3Provider(window.ethereum);
-        await provider.send("eth_requestAccounts", []);
+        await provider.send('eth_requestAccounts', []);
         const signer = provider.getSigner();
         const taker = await signer.getAddress();
-
-        const erc20 = new ethers.Contract(order.takerToken, [
-          "function allowance(address,address) view returns (uint256)",
-          "function approve(address,uint256) returns (bool)"
-        ], signer);
-
-        const allowance = await erc20.allowance(taker, LIMIT_ORDER_PROTOCOL);
-        if (ethers.BigNumber.from(allowance).lt(order.takerAmount)) {
-          statusEl.innerText = "🔐 正在授权 takerToken...";
-          const tx = await erc20.approve(LIMIT_ORDER_PROTOCOL, ethers.constants.MaxUint256);
-          await tx.wait();
-          statusEl.innerText = "✅ 授权成功，继续吃单...";
-        }
-
-        const contract = new ethers.Contract(LIMIT_ORDER_PROTOCOL, [
-          "function fillLimitOrder((address,address,uint128,uint128,address,address,address,bytes32,uint64,uint256),bytes,uint128) returns (uint128,uint128)"
-        ], signer);
-
-        const orderTuple = [
-          order.makerToken, order.takerToken,
-          order.makerAmount, order.takerAmount,
-          order.maker, order.taker,
-          order.sender, order.pool,
-          order.expiry, order.salt
+        const abi = [
+          'function fillLimitOrder((address,address,uint128,uint128,address,address,address,bytes32,uint64,uint256),bytes,uint128) returns (uint128,uint128)',
+          'function allowance(address,address) view returns (uint256)',
+          'function approve(address,uint256) returns (bool)'
         ];
+<<<<<<< HEAD
 
         const tx = await contract.fillLimitOrder(orderTuple, signature, order.takerAmount, { gasLimit: 800000 });
         console.log(signature);
@@ -136,6 +119,18 @@
         console.error(err);
         statusEl.innerText = "❌ 吃单失败：" + err.message;
       }
+=======
+        const token = new ethers.Contract(order.takerToken, abi, signer);
+        if ((await token.allowance(taker, LIMIT_ORDER_PROTOCOL)).lt(order.takerAmount)) {
+          statusEl.innerText='授权中...'; await (await token.approve(LIMIT_ORDER_PROTOCOL,ethers.constants.MaxUint256)).wait();
+        }
+        const tuple = [order.makerToken,order.takerToken,order.makerAmount,order.takerAmount,order.maker,order.taker,order.sender,order.pool,order.expiry,order.salt];
+        const contract = new ethers.Contract(LIMIT_ORDER_PROTOCOL,abi,signer);
+        const tx = await contract.fillLimitOrder(tuple,signature,order.takerAmount,{gasLimit:800000});
+        statusEl.innerText='交易中...'; await tx.wait();
+        statusEl.innerText=`成功: ${tx.hash}`;
+      } catch(e) { statusEl.innerText='失败: '+e; }
+>>>>>>> c91acdadcfc6a2798adc644a135981690dd0d29c
     }
   </script>
 </body>
