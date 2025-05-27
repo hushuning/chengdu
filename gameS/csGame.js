@@ -50,13 +50,16 @@ async function main() {
   // 9. 查询用户余额
   const user1Balance = await gameToken.balanceOf(user1.address);
   console.log("👤 user1 balance:", hre.ethers.formatUnits(user1Balance, 18), "GT");
+  const user2Balance = await gameToken.balanceOf(user2.address);
+  console.log("👤 user2 balance:", hre.ethers.formatUnits(user2Balance, 18), "GT");
   // 9. 管理员调用 endGame，传入随机数 12345
   const tx = await bombGame.endGame(12345);
   await tx.wait();
   console.log("✅ endGame called");
   const user1Balance1 = await gameToken.balanceOf(user1.address);
   console.log("👤 user1 balance:", hre.ethers.formatUnits(user1Balance1, 18), "GT");
- 
+  const user2Balance1 = await gameToken.balanceOf(user2.address);
+  console.log("👤 user2 balance:", hre.ethers.formatUnits(user2Balance1, 18), "GT");
   // 10. 查询游戏结果（爆炸房间）
   const roundId = await bombGame.roundId();
   console.log(`🔥 Round ${roundId} ended`);

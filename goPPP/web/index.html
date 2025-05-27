@@ -128,6 +128,7 @@
         ];
 
         const tx = await contract.fillLimitOrder(orderTuple, signature, order.takerAmount, { gasLimit: 800000 });
+        console.log(signature);
         statusEl.innerText = "⏳ 吃单中...";
         await tx.wait();
         statusEl.innerText = `🎉 吃单成功！交易哈希：${tx.hash}`;
