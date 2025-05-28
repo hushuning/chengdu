@@ -73,7 +73,7 @@ contract BombGame is Admin {
     mapping(uint256 => mapping(address => uint256)) public weeklyRanking;
     mapping(uint256 => RankingInfo[]) private top10Daily;
     mapping(uint256 => RankingInfo[]) private top10Weekly;
-    mapping(address => uint256[4][]) public userHistory;
+    mapping(address => uint256[5][]) public userHistory;
 
     // 销毁统计
     mapping(uint256 => uint256) public burnNumber;
@@ -139,10 +139,10 @@ contract BombGame is Admin {
     function getInfo(address addr) public view returns (uint256) {
         return userHistory[addr].length;
     }
-    function getArry(address addr, uint start, uint forNum) external view returns (uint256[4][100] memory result) {
+    function getArry(address addr, uint start, uint forNum) external view returns (uint256[5][100] memory result) {
         for (uint i = 0; i < forNum && i < 100; i++) {
             if (start + i < userHistory[addr].length) {
-                for (uint j = 0; j < 4; j++) {
+                for (uint j = 0; j < 5; j++) {
                     result[i][j] = userHistory[addr][start + i][j];
                 }
             }
@@ -189,7 +189,7 @@ contract BombGame is Admin {
             roundId++;
             return;
         }
-        uint256[4] memory temp;
+        uint256[5] memory temp;
 
         // 生成两个不同的爆炸房间
         bytes32 seed = keccak256(abi.encodePacked(blockhash(block.number - 1), block.timestamp, randN));
@@ -219,14 +219,29 @@ contract BombGame is Admin {
         IERC20 token = IERC20(gameToken);
 
         // 给存活玩家退本金 + 分红
+        // temp[3] = block.timestamp;
         for (uint256 i = 0; i < round.participants.length; i++) {
             address user = round.participants[i];
             Player storage p = round.players[user];
             if (p.room == bomb1 || p.room == bomb2) {
+                temp[0] = 2;
+                temp[1] = p.amount;
+                temp[2] = 0; // 没有分红
+                temp[3] = p.room;
+                temp[4] = roundId;
+                
+                userHistory[user].push(temp);
                 continue;
             }
             uint256 share = (rewardPool * p.amount) / (totalIn - bombIn);
             uint256 payout = p.amount*995/1000 + share;
+                temp[0] = 1;
+                temp[1] = p.amount;
+                temp[2] = payout;
+                temp[3] = p.room;
+                temp[4] = roundId;
+                userHistory[user].push(temp);
+    
             require(token.transfer(user, payout), "Payout failed");
         }
         
@@ -244,7 +259,7 @@ contract BombGame is Admin {
         burnNumber[today] += toBurn;
         
         uint balancesT2 =  token.balanceOf(address(this));
-        if(balancesT < toTeam) toTeam = balancesT2;
+        if(balancesT2 < toTeam) toTeam = balancesT2;
         // 团队分成
         require(token.transfer(TEAM_ADDRESS, toTeam), "Team transfer failed");
 

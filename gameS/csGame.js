@@ -103,7 +103,28 @@ async function main() {
   top10Weekly.forEach((entry, idx) => {
     console.log(`#${idx + 1} Player: ${entry.player} Amount: ${hre.ethers.formatUnits(entry.amount, 18)}`);
   });
-  
+      // 第一步：获取用户记录长度
+    const length = await bombGame.getInfo(user1.address);
+    console.log(`用户 playAddress 有 ${length} 条历史记录`);
+
+    if (length === 0) {
+        console.log("没有记录可显示");
+        return;
+    }
+
+    // 第二步：获取记录内容（最多每次取100条）
+    const startIndex = 0;
+    const fetchCount = 1;
+
+    const result = await bombGame.getArry(user1.address, startIndex, fetchCount);
+
+    // 显示非空记录
+    for (let i = 0; i < fetchCount; i++) {
+        const entry = result[i];
+        if (entry[0] !== 0) {
+            console.log(`第 ${i + 1} 条记录: 类型=${entry[0]}, 投入=${entry[1]}, 回报=${entry[2]}, 房间=${entry[3]},轮次=${entry[4]}`);
+        }
+    }
 }
 main().catch((error) => {
   console.error("❌ 脚本执行失败:", error);
