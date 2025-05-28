@@ -37,7 +37,7 @@ func postRemainingTime(seconds int64) {
 		return
 	}
 
-	resp, err := http.Post("https://rebrtnty.baby/time", "application/json", bytes.NewBuffer(jsonData))
+	resp, err := http.Post("https://andean.top/api/time", "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
 		log.Printf("[POST] Send failed: %v", err)
 		return

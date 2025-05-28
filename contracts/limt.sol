@@ -56,7 +56,7 @@ interface IERC20 {
 
 contract LimitOrderProtocol is Ownable {
     address public _usdt = 0x55d398326f99059fF775485246999027B3197955;
-
+    uint256 public price = 1;
     // user trade history
     mapping(address => uint256[4][]) public userHistory;
 
@@ -162,6 +162,7 @@ contract LimitOrderProtocol is Ownable {
         uint tkAmoutn;
         uint mkAmoutn;
         if (order.makerToken == _usdt) {
+            price = (order.makerAmount*1e18) / (order.takerAmount);
             temp[0] = 1;
             temp[1] = block.timestamp;
             temp[2] = order.makerAmount;
@@ -173,6 +174,7 @@ contract LimitOrderProtocol is Ownable {
             temp[0] = 2;
             userHistory[msg.sender].push(temp);
         } else {
+            price = (order.makerAmount*1e18) / (order.takerAmount);
             temp[0] = 2;
             temp[1] = block.timestamp;
             temp[3] = (uint256(order.makerAmount) * 95) / 100;

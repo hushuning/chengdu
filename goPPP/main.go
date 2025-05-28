@@ -44,17 +44,15 @@ type TimeInput struct {
 
 // 设置倒计时
 func setTime(c *gin.Context) {
-	var input TimeInput
-	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
 	mu.Lock()
-	deadlineTime = time.Now().Add(time.Duration(input.Seconds) * time.Second)
+	deadlineTime = time.Now().Add(90 * time.Second)
 	mu.Unlock()
 
-	c.JSON(http.StatusOK, gin.H{"message": "deadline set", "deadline": deadlineTime.Format(time.RFC3339)})
+	c.JSON(http.StatusOK, gin.H{
+		"message":  "deadline set",
+		"deadline": deadlineTime.Format(time.RFC3339),
+	})
+
 }
 
 // 获取剩余时间
