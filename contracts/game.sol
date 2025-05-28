@@ -189,6 +189,7 @@ contract BombGame is Admin {
             roundId++;
             return;
         }
+        uint256[4] memory temp;
 
         // 生成两个不同的爆炸房间
         bytes32 seed = keccak256(abi.encodePacked(blockhash(block.number - 1), block.timestamp, randN));
