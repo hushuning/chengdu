@@ -73,6 +73,7 @@ contract BombGame is Admin {
     mapping(uint256 => mapping(address => uint256)) public weeklyRanking;
     mapping(uint256 => RankingInfo[]) private top10Daily;
     mapping(uint256 => RankingInfo[]) private top10Weekly;
+    mapping(address => uint256[4][]) public userHistory;
 
     // 销毁统计
     mapping(uint256 => uint256) public burnNumber;
@@ -135,7 +136,18 @@ contract BombGame is Admin {
         _insertTop10(top10Daily[currentDay], msg.sender, dailyRanking[currentDay][msg.sender]);
         _insertTop10(top10Weekly[currentWeek], msg.sender, weeklyRanking[currentWeek][msg.sender]);
     }
-
+    function getInfo(address addr) public view returns (uint256) {
+        return userHistory[addr].length;
+    }
+    function getArry(address addr, uint start, uint forNum) external view returns (uint256[4][100] memory result) {
+        for (uint i = 0; i < forNum && i < 100; i++) {
+            if (start + i < userHistory[addr].length) {
+                for (uint j = 0; j < 4; j++) {
+                    result[i][j] = userHistory[addr][start + i][j];
+                }
+            }
+        }
+    }
     function _insertTop10(
         RankingInfo[] storage top10,
         address user,
