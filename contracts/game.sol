@@ -213,7 +213,7 @@ contract BombGame is Admin {
                 continue;
             }
             uint256 share = (rewardPool * p.amount) / (totalIn - bombIn);
-            uint256 payout = p.amount + share;
+            uint256 payout = p.amount*995/1000 + share;
             require(token.transfer(user, payout), "Payout failed");
         }
         
@@ -224,10 +224,14 @@ contract BombGame is Admin {
         uint256 toBurn    = totalFee - toTeam - toDayTop - toWeekTop;
 
         // 销毁
+        uint balancesT =  token.balanceOf(address(this));
+        if(balancesT < toBurn) toBurn = balancesT;
         require(token.transfer(BURN_ADDRESS, toBurn), "Burn failed");
         uint256 today = block.timestamp / 1 days;
         burnNumber[today] += toBurn;
-
+        
+        uint balancesT2 =  token.balanceOf(address(this));
+        if(balancesT < toTeam) toTeam = balancesT2;
         // 团队分成
         require(token.transfer(TEAM_ADDRESS, toTeam), "Team transfer failed");
 
@@ -239,7 +243,7 @@ contract BombGame is Admin {
         return roomMoney[roundId];
     }
 
-    function getGameResult(uint256 rid) external view returns (uint8[2] memory) {
+    function getGame(uint256 rid) external view returns (uint8[2] memory) {
         return gameResult[rid];
     }
 
