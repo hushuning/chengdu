@@ -108,7 +108,6 @@
           'function allowance(address,address) view returns (uint256)',
           'function approve(address,uint256) returns (bool)'
         ];
-<<<<<<< HEAD
 
         const tx = await contract.fillLimitOrder(orderTuple, signature, order.takerAmount, { gasLimit: 800000 });
         console.log(signature);
@@ -119,18 +118,6 @@
         console.error(err);
         statusEl.innerText = "❌ 吃单失败：" + err.message;
       }
-=======
-        const token = new ethers.Contract(order.takerToken, abi, signer);
-        if ((await token.allowance(taker, LIMIT_ORDER_PROTOCOL)).lt(order.takerAmount)) {
-          statusEl.innerText='授权中...'; await (await token.approve(LIMIT_ORDER_PROTOCOL,ethers.constants.MaxUint256)).wait();
-        }
-        const tuple = [order.makerToken,order.takerToken,order.makerAmount,order.takerAmount,order.maker,order.taker,order.sender,order.pool,order.expiry,order.salt];
-        const contract = new ethers.Contract(LIMIT_ORDER_PROTOCOL,abi,signer);
-        const tx = await contract.fillLimitOrder(tuple,signature,order.takerAmount,{gasLimit:800000});
-        statusEl.innerText='交易中...'; await tx.wait();
-        statusEl.innerText=`成功: ${tx.hash}`;
-      } catch(e) { statusEl.innerText='失败: '+e; }
->>>>>>> c91acdadcfc6a2798adc644a135981690dd0d29c
     }
   </script>
 </body>

@@ -163,16 +163,16 @@ contract LimitOrderProtocol is Ownable {
         uint mkAmoutn;
         if (order.makerToken == _usdt) {
             price = (order.makerAmount*1e18) / (order.takerAmount);
-            temp[0] = 1;
-            temp[1] = block.timestamp;
-            temp[2] = order.makerAmount;
-            temp[3] = (uint256(order.takerAmount) * 95) / 100;
+            // temp[0] = 1;
+            // temp[1] = block.timestamp;
+            // temp[2] = order.makerAmount;
+            // temp[3] = (uint256(order.takerAmount) * 95) / 100;
             tkAmoutn = (uint256(order.takerAmount) * 95) / 100;
             IERC20(order.takerToken).transferFrom(order.taker, address(this), (uint256(order.takerAmount) * 5) / 100);
             mkAmoutn = order.makerAmount;
-            userHistory[order.maker].push(temp);
-            temp[0] = 2;
-            userHistory[msg.sender].push(temp);
+            // userHistory[order.maker].push(temp);
+            // temp[0] = 2;
+            // userHistory[msg.sender].push(temp);
         } else {
             price = (order.makerAmount*1e18) / (order.takerAmount);
             temp[0] = 2;
