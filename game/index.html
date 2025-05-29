@@ -1,232 +1,300 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Room Explosion Game</title>
+  <meta charset="UTF-8"/>
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>Room Explosion Game (With Status)</title>
   <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
   <style>
-    body { margin: 0; padding: 0; }
-    #game-container { width: 100vw; height: 100vh; overflow: hidden; }
-    #game-container canvas { width: 100vw !important; height: 100vh !important; }
-    #save-btn {
-      position: absolute;
-      top: 20px;
-      right: 20px;
-      z-index: 1000;
-      padding: 8px 12px;
-      font-size: 14px;
+    body { margin:0; padding:0; }
+    #game-container { width:100vw; height:100vh; overflow:hidden; }
+    #game-container canvas { width:100vw!important; height:100vh!important; }
+    /* 游戏状态：第 X 轮 & 爆炸龙号 */
+    #game-status {
+      position:absolute; top:10px; left:10px;
+      background:rgba(0,0,0,0.5); color:#fff;
+      padding:6px; font-family:Arial; z-index:1000;
+    }
+    #game-status p {
+      margin:0; font-size:14px;
+    }
+    /* 操作说明 */
+    #explode-instruction {
+      position:absolute; top:10px; right:10px;
+      background:rgba(0,0,0,0.5); color:#fff;
+      padding:6px; font-family:Arial; z-index:1000;
+    }
+    /* 右上角按钮 */
+    .info-btn {
+      position:absolute; top:50px;
+      padding:6px 12px; font-size:14px;
+      background:#007acc; color:#fff;
+      border:none; border-radius:4px;
+      cursor:pointer; z-index:1000;
+    }
+    #btn-winloss { right:120px; }
+    #btn-weeklyrank { right:10px; }
+    /* 信息面板 */
+    #info-panel {
+      position:absolute; top:90px; right:10px;
+      width:220px; max-height:300px; overflow:auto;
+      background:rgba(0,0,0,0.8); color:#fff;
+      padding:10px; border-radius:6px;
+      font-family:Arial; display:none; z-index:1000;
+    }
+    #info-panel h3 { margin:0 0 8px; font-size:16px; text-align:center; }
+    #info-panel .close-btn {
+      position:absolute; top:6px; right:6px;
+      background:transparent; border:none;
+      color:#fff; font-size:14px; cursor:pointer;
+    }
+    /* 下注框 */
+    #bet-ui {
+      position:absolute; top:calc(50% + 20px); left:50%;
+      transform:translate(-50%,-50%); display:none;
+      z-index:2000; text-align:center;
+    }
+    #bet-ui .bet-bg {
+      position:absolute; top:0; left:0;
+      width:300px; height:60px; pointer-events:none;
+    }
+    #bet-ui #bet-input {
+      position:relative; width:200px; height:40px;
+      margin:10px 0 0; border:none;
+      background:transparent;
+      font-size:18px; color:#fff; text-align:center;
+    }
+    #bet-ui .bet-buttons { margin-top:5px; }
+    #bet-ui .bet-btn {
+      width:100px; height:40px; cursor:pointer;
     }
   </style>
 </head>
 <body>
+  <!-- 游戏状态 -->
+  <div id="game-status">
+    <p id="round-info">第 0 轮</p>
+    <p id="exploded-info">爆炸龙号: -</p>
+     <p id="exploded-info">倒计时: -</p>
+  </div>
+
   <div id="game-container"></div>
-  <button id="save-btn">打印坐标到控制台</button>
+  <!-- <div id="explode-instruction">按 E 键，输入“i1,i2”触发爆炸</div> -->
+
+  <!-- 信息按钮 -->
+  <button id="btn-winloss" class="info-btn">个人胜负</button>
+  <button id="btn-weeklyrank" class="info-btn">周日排名</button>
+
+  <!-- 信息面板 -->
+  <div id="info-panel">
+    <button class="close-btn">&times;</button>
+    <div id="info-content"></div>
+  </div>
+
+  <!-- 自定义下注框（仅金币） -->
+  <div id="bet-ui">
+    <img src="assets/ui/ui_asset_143.png" class="bet-bg" alt="input-bg"/>
+    <input id="bet-input" type="number" placeholder="输入金额"/>
+    <div class="bet-buttons">
+      <img src="assets/ui/ui_asset_793.png" id="bet-coin" class="bet-btn" alt="coin"/>
+    </div>
+  </div>
 
   <script>
-    window.onload = function () {
-      const DEV_MODE = false; // 设置为 true 以启用拖拽功能
-      const ROOM_SCALE = 0.3;
-      const GRID_COLS = 5;
-      const GRID_ROWS = 2;
+  window.onload = function() {
+    const COLS = 5, ROWS = 2;
+    const spriteScales = [0.33,0.32,0.32,0.33,0.32,0.35,0.30,0.32,0.17,0.20];
+    let gameRound = 0;
 
-      const config = {
-        type: Phaser.AUTO,
-        parent: 'game-container',
-        width: 800,
-        height: 600,
-        scale: {
-          mode: Phaser.Scale.FIT,
-          autoCenter: Phaser.Scale.CENTER_BOTH,
-        },
-        scene: { preload, create, update }
+    // 更新状态显示
+    function updateGameStatus(round, explodedArr) {
+      document.getElementById('round-info').textContent = `第 ${round} 轮`;
+      document.getElementById('exploded-info').textContent =
+        `爆炸龙号: ${explodedArr.join(', ')}`;
+    }
+
+    const config = {
+      type: Phaser.AUTO,
+      parent: 'game-container',
+      width: 800, height: 600,
+      scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+      scene: { preload, create, update }
+    };
+    const game = new Phaser.Game(config);
+
+    let rooms = [], headTexts = [], bets = {};
+    let currentRoomIdx = null, highlightRect;
+
+    function preload() {
+      this.load.image('background','assets/background.png');
+      for(let i=0;i<10;i++){
+        this.load.image('room'+i, `assets/room_assets/${i+1}.png`);
+      }
+      for(let i=1;i<=25;i++){
+        const idx=String(i).padStart(2,'0');
+        this.load.image('exp'+idx, `assets/explosion_spritesheet_${idx}.png`);
+      }
+    }
+
+    function create() {
+      const scene = this;
+      this.add.image(0,0,'background')
+          .setOrigin(0).setDisplaySize(config.width,config.height);
+
+      const mx = config.width*0.1, my = config.height*0.3;
+      const defaultPos = calcPositions(config.width,config.height,COLS,ROWS,mx,my);
+      const saved = [
+        {"x":109.49248295996807,"y":151.60232150400213},
+        {"x":258.65100039902694,"y":134.29539044613492},
+        {"x":487.43238117282834,"y":145.4214319393323},
+        {"x":678.9320605586073,"y":145.4951123569907},
+        {"x":262.4899152543207,"y":270.725406274776},
+        {"x":95.25670989903574,"y":296.0600023308948},
+        {"x":448.79074998099946,"y":274.79015903604443},
+        {"x":668.599694108667,"y":260.5471184072623},
+        {"x":228.04494007806233,"y":470.4409249472191},
+        {"x":657.8153168673309,"y":462.58434305737325}
+      ];
+      const positions = saved || defaultPos;
+      this.input.setTopOnly(true);
+
+      highlightRect = this.add.rectangle(0,0,0,0,0xffff00,0.3)
+                          .setOrigin(0.5).setVisible(false);
+
+      // 创建房间与头顶数字
+      positions.forEach((pos,idx)=>{
+        const base=spriteScales[idx];
+        const spr=this.add.image(pos.x,pos.y,'room'+idx)
+                     .setScale(base).setInteractive()
+                     .setData('idx',idx);
+        spr.on('pointerup',()=>{
+          rooms.forEach(r=>{
+            const i=r.getData('idx');
+            r.setScale(spriteScales[i]);
+          });
+          spr.setScale(base*2);
+          const w=spr.displayWidth+20, h=spr.displayHeight+20;
+          highlightRect.setPosition(spr.x,spr.y)
+                       .setSize(w,h).setVisible(true);
+          currentRoomIdx=idx;
+          document.getElementById('bet-input').value='';
+          document.getElementById('bet-ui').style.display='block';
+        });
+        rooms.push(spr);
+        const txt=this.add.text(
+          pos.x, pos.y - spr.displayHeight/2 - 20,
+          '0',
+          { font:'20px Arial', fill:'#ffff00',
+            stroke:'#000', strokeThickness:3 }
+        ).setOrigin(0.5);
+        headTexts.push(txt);
+      });
+
+      // 定义爆炸动画
+      const frames=[];
+      for(let i=1;i<=25;i++){
+        frames.push({ key:'exp'+String(i).padStart(2,'0') });
+      }
+      this.anims.create({
+        key:'explode',
+        frames:frames,
+        frameRate:15,
+        hideOnComplete:true
+      });
+
+      // 下注框逻辑
+      const ui=document.getElementById('bet-ui');
+      const input=document.getElementById('bet-input');
+      document.getElementById('bet-coin').onclick=()=>{
+        const v=parseFloat(input.value)||0;
+        bets[currentRoomIdx]=v;
+        headTexts[currentRoomIdx].setText(v);
+        ui.style.display='none';
       };
 
-      const game = new Phaser.Game(config);
-      let rooms = [];
-      let betTexts = [];
-      let bets = {};
+      // E键触发爆炸
+      window.addEventListener('keydown', e=>{
+        if(e.key.toLowerCase()!=='e') return;
+        e.preventDefault();
+        const str=prompt(`输入两个索引(0~${rooms.length-1})`);
+        if(!str) return;
+        const vals=str.split(/\D+/).filter(Boolean).map(n=>parseInt(n,10));
+        if(vals.length<2||vals.slice(0,2).some(n=>isNaN(n)||n<0||n>=rooms.length)){
+          alert('请输入合法的两个索引');
+          return;
+        }
+        // 更新回合与爆炸龙号
+        gameRound++;
+        updateGameStatus(gameRound, [vals[0], vals[1]]);
+        explodeRooms.call(scene, vals[0], vals[1]);
+      });
 
-      function preload() {
-        this.load.image('background', 'assets/background.png');
-        const roomFiles = [
-          'room_asset_0.png', 'room_asset_62.png', 'room_asset_637.png',
-          'room_asset_970.png', 'room_asset_1305.png', 'room_asset_1508.png',
-          '7.png', '8.png', '9.png', '10.png'
-        ];
-        roomFiles.forEach((fn, idx) => {
-          this.load.image('room' + idx, 'assets/room_assets/' + fn);
+      // 信息按钮逻辑
+      const winLossData = { wins:5, losses:3 };
+      const weeklyRankData = { rank:2, total:10 };
+      const panel = document.getElementById('info-panel');
+      const content = document.getElementById('info-content');
+      document.getElementById('btn-winloss').onclick = ()=>{
+        content.innerHTML = `
+          <h3>个人胜负</h3>
+          <p>胜场: ${winLossData.wins}</p>
+          <p>败场: ${winLossData.losses}</p>
+        `;
+        panel.style.display = 'block';
+      };
+      document.getElementById('btn-weeklyrank').onclick = ()=>{
+        content.innerHTML = `
+          <h3>周日排名</h3>
+          <p>排名: ${weeklyRankData.rank} / ${weeklyRankData.total}</p>
+        `;
+        panel.style.display = 'block';
+      };
+      document.querySelector('#info-panel .close-btn').onclick = ()=>{
+        panel.style.display = 'none';
+      };
+
+      // 初始状态
+      updateGameStatus(gameRound, []);
+    }
+
+    function update(){}
+
+    function explodeRooms(i1,i2){
+      [i1,i2].forEach(idx=>{
+        if(idx<0||idx>=rooms.length) return;
+        const room=rooms[idx];
+        const fx=this.add.sprite(room.x,room.y,'exp01')
+                       .play('explode')
+                       .setScale(room.scaleX*1.2);
+        this.tweens.add({
+          targets:fx,
+          scaleX:fx.scaleX*1.3,
+          scaleY:fx.scaleY*1.3,
+          yoyo:true,repeat:2,duration:200
         });
-        this.load.spritesheet('explosion', 'assets/explosion_spritesheet.png', { frameWidth: 64, frameHeight: 64 });
-      }
-
-      function create() {
-        // 背景
-        this.add.image(0, 0, 'background')
-          .setOrigin(0)
-          .setDisplaySize(config.width, config.height);
-
-        // 初始位置
-        const marginX = config.width * 0.1;
-        const marginY = config.height * 0.3;
-        const defaultPositions = calcPositions(config.width, config.height, GRID_COLS, GRID_ROWS, marginX, marginY);
-
-        // 【手动写死坐标的位置】——每次拖拽后复制控制台输出的 const saved = [...] 并粘到这里：
-        // const saved = null;
-     const saved = [
-  {
-    "x": 114.8479873063484,
-    "y": 163.9601987127388
-  },
-  {
-    "x": 264.00639125548435,
-    "y": 167.6616913174914
-  },
-  {
-    "x": 417.8111935121337,
-    "y": 165.19402958098962
-  },
-  {
-    "x": 566.466951616793,
-    "y": 151.05616741248457
-  },
-  {
-    "x": 416.01335177458344,
-    "y": 322.0106590514343
-  },
-  {
-    "x": 95.25670989903574,
-    "y": 296.0600023308948
-  },
-  {
-    "x": 688.001546731329,
-    "y": 461.3941824701993
-  },
-  {
-    "x": 365.12300125041764,
-    "y": 468.1594869397522
-  },
-  {
-    "x": 693.9711511999615,
-    "y": 173.2338263498273
-  },
-  {
-    "x": 531.0694588239312,
-    "y": 469.9990634902939
-  }
-];
-
-        // 例如：
-        // const saved = [
-        //   { "x": 120, "y": 240 },
-        //   { "x": 280, "y": 240 },
-        //   ...
-        // ];
-
-        const positions = saved || defaultPositions;
-
-        this.input.setTopOnly(true);
-
-        positions.forEach((pos, idx) => {
-          const sprite = this.add.image(pos.x, pos.y, 'room' + idx)
-            .setScale(ROOM_SCALE)
-            .setInteractive({ draggable: DEV_MODE });
-
-          sprite.setData('idx', idx);
-          let wasDragged = false;
-
-          if (DEV_MODE) {
-            sprite.on('dragstart', () => {
-              wasDragged = true;
-              sprite.setTint(0xaaaaaa);
-            });
-            sprite.on('drag', (pointer, dragX, dragY) => {
-              sprite.x = dragX;
-              sprite.y = dragY;
-              betTexts[idx].setPosition(dragX, dragY - 40 * ROOM_SCALE);
-            });
-            sprite.on('dragend', () => {
-              sprite.clearTint();
-              // 拖拽结束后打印可粘回 HTML 的坐标代码
-              const coords = rooms.map(r => ({ x: r.x, y: r.y }));
-              console.log(
-                'const saved = ' +
-                JSON.stringify(coords, null, 2) +
-                ';'
-              );
-              setTimeout(() => { wasDragged = false; }, 100);
-            });
-          }
-
-          sprite.on('pointerup', () => {
-            if (!wasDragged) onRoomClick(idx);
-          });
-
-          rooms.push(sprite);
-
-          const text = this.add.text(pos.x, pos.y - 40 * ROOM_SCALE, bets[idx] ? `$${bets[idx]}` : '', {
-            font: `${18 * ROOM_SCALE}px Arial`,
-            fill: '#ffffff', stroke: '#000000', strokeThickness: 3
-          }).setOrigin(0.5);
-          betTexts.push(text);
+        fx.on('animationcomplete',()=>fx.destroy());
+      });
+      this.time.delayedCall(3000,()=>{
+        rooms.forEach(r=>{
+          const i=r.getData('idx');
+          r.setScale(spriteScales[i]);
         });
+        highlightRect.setVisible(false);
+        headTexts.forEach(txt=>txt.setText('0'));
+      });
+    }
 
-        this.anims.create({
-          key: 'explode',
-          frames: this.anims.generateFrameNumbers('explosion', { start: 0, end: 9 }),
-          frameRate: 15,
-          hideOnComplete: true
-        });
-
-        this.add.text(20, 20, '开始一轮', { font: '20px Arial', fill: '#00ff00' })
-          .setInteractive()
-          .on('pointerdown', () => simulateRound.call(this));
-
-        // “打印坐标”按钮也触发同样的打印
-        document.getElementById('save-btn').addEventListener('click', () => {
-          const coords = rooms.map(r => ({ x: r.x, y: r.y }));
-          console.log(
-            'const saved = ' +
-            JSON.stringify(coords, null, 2) +
-            ';'
-          );
-        });
-      }
-
-      function update() {}
-
-      function onRoomClick(idx) {
-        const amount = prompt(`为房间 ${idx + 1} 输入下注金额：`);
-        if (amount) {
-          bets[idx] = parseFloat(amount);
-          betTexts[idx].setText(`$${bets[idx]}`);
+    function calcPositions(w,h,cols,rows,mx,my){
+      const arr=[], sx=(w-mx*2)/(cols-1), sy=(h-my*2)/(rows-1);
+      for(let j=0;j<rows;j++){
+        for(let i=0;i<cols;i++){
+          arr.push({ x:mx+sx*i, y:my+sy*j });
         }
       }
-
-      function simulateRound() {
-        if (rooms.length < 2) return;
-        const indices = Phaser.Utils.Array.NumberArray(0, rooms.length - 1);
-        Phaser.Utils.Array.Shuffle(indices);
-        indices.slice(0, 2).forEach(i => {
-          const { x, y } = rooms[i];
-          this.add.sprite(x, y, 'explosion')
-            .setScale(ROOM_SCALE * 2)
-            .play('explode');
-        });
-      }
-
-      function calcPositions(w, h, cols, rows, marginX, marginY) {
-        const arr = [];
-        const stepX = (w - marginX * 2) / (cols - 1);
-        const stepY = (h - marginY * 2) / (rows - 1);
-        for (let j = 0; j < rows; j++) {
-          for (let i = 0; i < cols; i++) {
-            arr.push({ x: marginX + stepX * i, y: marginY + stepY * j });
-          }
-        }
-        return arr;
-      }
-    };
+      return arr;
+    }
+  };
   </script>
 </body>
 </html>
