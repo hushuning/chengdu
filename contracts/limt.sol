@@ -162,25 +162,25 @@ contract LimitOrderProtocol is Ownable {
         uint tkAmoutn;
         uint mkAmoutn;
         if (order.makerToken == _usdt) {
-            price = (order.makerAmount*1e18) / (order.takerAmount);
-            // temp[0] = 1;
-            // temp[1] = block.timestamp;
-            // temp[2] = order.makerAmount;
-            // temp[3] = (uint256(order.takerAmount) * 95) / 100;
+            price = (uint(order.makerAmount)*1e18) / uint(order.takerAmount);
+            temp[0] = 1;
+            temp[1] = block.timestamp;
+            temp[2] = uint(order.makerAmount);
             tkAmoutn = (uint256(order.takerAmount) * 95) / 100;
+            temp[3] = tkAmoutn;
             IERC20(order.takerToken).transferFrom(order.taker, address(this), (uint256(order.takerAmount) * 5) / 100);
-            mkAmoutn = order.makerAmount;
-            // userHistory[order.maker].push(temp);
-            // temp[0] = 2;
-            // userHistory[msg.sender].push(temp);
+            mkAmoutn = uint(order.makerAmount);
+            userHistory[order.maker].push(temp);
+            temp[0] = 2;
+            userHistory[msg.sender].push(temp);
         } else {
-            price = (order.makerAmount*1e18) / (order.takerAmount);
+            price = (uint(order.makerAmount)*1e18) / uint(order.takerAmount);
             temp[0] = 2;
             temp[1] = block.timestamp;
             temp[3] = (uint256(order.makerAmount) * 95) / 100;
             mkAmoutn = (uint256(order.makerAmount) * 95) / 100;
             IERC20(order.makerToken).transferFrom(order.maker, address(this), (uint256(order.makerAmount) * 5) / 100);
-            tkAmoutn = order.takerAmount;
+            tkAmoutn = uint(order.takerAmount);
             temp[2] = order.takerAmount;
             userHistory[order.maker].push(temp);
             temp[0] = 1;
