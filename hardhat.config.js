@@ -21,7 +21,7 @@ module.exports = {
     bscMain: {
       url: "https://bnb.rpc.subquery.network/public",
       chainId: 56,
-      accounts: [process.env.PRIVATE_KEY,]  // 从 .env 文件加载私钥
+      accounts: [process.env.PRIVATE_KEY,process.env.PRIVATE_KEY2,]  // 从 .env 文件加载私钥
     },
     // hardhat: {
     //    // ← disable the 24 KB contract‑size limit

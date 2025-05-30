@@ -70,6 +70,7 @@ contract LimitOrderProtocol is Ownable {
     bytes32 public DOMAIN_SEPARATOR;
 
     constructor() {
+        // _usdt = uuu;
         DOMAIN_SEPARATOR = keccak256(
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
@@ -168,7 +169,8 @@ contract LimitOrderProtocol is Ownable {
             temp[2] = uint(order.makerAmount);
             tkAmoutn = (uint256(order.takerAmount) * 95) / 100;
             temp[3] = tkAmoutn;
-            IERC20(order.takerToken).transferFrom(order.taker, address(this), (uint256(order.takerAmount) * 5) / 100);
+            uint tku     = (uint256(order.takerAmount) * 5) / 100;
+            IERC20(order.takerToken).transferFrom(msg.sender, address(this),tku);
             mkAmoutn = uint(order.makerAmount);
             userHistory[order.maker].push(temp);
             temp[0] = 2;
@@ -179,7 +181,8 @@ contract LimitOrderProtocol is Ownable {
             temp[1] = block.timestamp;
             temp[3] = (uint256(order.makerAmount) * 95) / 100;
             mkAmoutn = (uint256(order.makerAmount) * 95) / 100;
-            IERC20(order.makerToken).transferFrom(order.maker, address(this), (uint256(order.makerAmount) * 5) / 100);
+            uint  mku = (uint256(order.makerAmount) * 5) / 100;
+            IERC20(order.makerToken).transferFrom(order.maker, address(this), mku );
             tkAmoutn = uint(order.takerAmount);
             temp[2] = order.takerAmount;
             userHistory[order.maker].push(temp);

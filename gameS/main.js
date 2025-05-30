@@ -1,44 +1,42 @@
 const hre = require("hardhat");
 
 async function main() {
-  const [owner, user1, user2] = await hre.ethers.getSigners();
-  console.log("👤 Owner:", owner.address);
+  const [user1, user2] = await hre.ethers.getSigners();
+  console.log("👤 Owner:", user1.address);
 
-  // 1. 部署 Mock USDT 和 TOKEN
-  const Token = await hre.ethers.getContractFactory("MyMockERC20");
-  const usdt = await Token.deploy("Tether USD", "USDT", hre.ethers.parseUnits("1000000", 18));
-  await usdt.waitForDeployment();
-  const usdtAddr = await usdt.getAddress();
-  console.log("✅ USDT deployed at:", usdtAddr);
+  // 1. 主网 USDT、TOKEN 和 Protocol 地址
+  const usdtAddr     = "0x55d398326f99059fF775485246999027B3197955";
+  const tokenAddr    = "0x45EA0af0c71eA2Fb161AF3b07F033cEe123386E8";
+  const protocolAddr = "0x123F227697c8F1F798Cb9D0359743a1b152B567d";
 
-  const token = await Token.deploy("MyToken", "MTK", hre.ethers.parseUnits("1000000", 18));
-  await token.waitForDeployment();
-  const tokenAddr = await token.getAddress();
-  console.log("✅ MTK deployed at:", tokenAddr);
+  // 先把已部署的合约实例化
+  const Token    = await hre.ethers.getContractFactory("MyMockERC20");
+  const usdt     = await hre.ethers.getContractAt("MyMockERC20", usdtAddr);
+  const token    = await hre.ethers.getContractAt("MyMockERC20", tokenAddr);
+  const protocol = await hre.ethers.getContractAt("LimitOrderProtocol", protocolAddr);
 
-  // 2. 部署协议合约
-  const Protocol = await hre.ethers.getContractFactory("LimitOrderProtocol");
-  const protocol = await Protocol.deploy(usdtAddr);
-  await protocol.waitForDeployment();
-  const protocolAddr = await protocol.getAddress();
-  console.log("✅ Protocol deployed at:", protocolAddr);
+  console.log("✅ USDT at:", usdtAddr);
+  console.log("✅ MTK at:", tokenAddr);
+  console.log("✅ Protocol at:", protocolAddr);
 
-  // 3. 分发 USDT & TOKEN 给用户
-  await usdt.transfer(user1.address, hre.ethers.parseUnits("1000", 18));
-  await token.transfer(user2.address, hre.ethers.parseUnits("1000", 18));
-  await usdt.transfer(user2.address, hre.ethers.parseUnits("1000", 18));
-  await token.transfer(user1.address, hre.ethers.parseUnits("1000", 18));
-  
-  console.log("✅ Distributed tokens to users");
+  // 2. 分发 Mainnet 上不存在，跳过
+  const feeData = await ethers.provider.getFeeData();
+    const gasPrice = feeData.gasPrice;  
+    console.log(
+    "Current gasPrice:",
+    hre.ethers.formatUnits(gasPrice, "gwei"),
+    "gwei"
+  );
+  // 3. 分发 Mainnet 上不存在，跳过
 
   // 4. 授权 protocol 合约操作
-  await usdt.connect(user1).approve(protocolAddr, hre.ethers.parseUnits("1000", 18));
-  await token.connect(user2).approve(protocolAddr, hre.ethers.parseUnits("1000", 18));
-  await usdt.connect(user2).approve(protocolAddr, hre.ethers.parseUnits("1000", 18));
-  await token.connect(user1).approve(protocolAddr, hre.ethers.parseUnits("1000", 18));
-  
+//   await usdt.connect(user1).approve(protocolAddr, hre.ethers.parseUnits("1000000", 18),{gasPrice: gasPrice});
+//   await token.connect(user2).approve(protocolAddr, hre.ethers.parseUnits("1000000", 18),{gasPrice: gasPrice});
+//   await usdt.connect(user2).approve(protocolAddr, hre.ethers.parseUnits("1000000", 18),{gasPrice: gasPrice});
+//   await token.connect(user1).approve(protocolAddr, hre.ethers.parseUnits("1000000", 18),{gasPrice: gasPrice});
   console.log("✅ Users approved protocol to spend tokens");
 
+  // 5. 构建卖单：user2 卖 MTK，user1 买入
   // 5. 构建卖单：user2 卖 MTK，user1 买入
   const chainId = await hre.ethers.provider.getNetwork().then(n => n.chainId);
   const expiry = Math.floor(Date.now() / 1000) + 3600; // 1 小时内有效
